@@ -1,325 +1,378 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#075e4b">
-<title>JALANKU | Malaysia Navigation</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:#f1f5f9;color:#15382e}
-header{background:#075e4b;color:white;padding:18px}
-header h1{margin:0;font-size:25px}
-header p{margin:6px 0 0;font-size:13px}
-main{max-width:760px;margin:auto;padding:12px}
-.panel{background:white;border-radius:14px;padding:14px;margin-bottom:12px}
-label{display:block;font-size:14px;font-weight:bold;margin:10px 0 6px}
-input,select,button{width:100%;padding:13px;border-radius:9px;font-size:16px}
-input,select{border:1px solid #cbd5e1;background:white}
-button{border:0;margin-top:9px;background:#075e4b;color:white;font-weight:bold}
-button:disabled{opacity:.6}
-.secondary{background:#e4eee9;color:#075e4b}
-#map{height:48vh;min-height:320px;border-radius:12px}
-#status{white-space:pre-line;line-height:1.6;font-size:14px}
-#details{font-size:14px;line-height:1.7;overflow-wrap:anywhere}
-footer{text-align:center;font-size:12px;color:#64748b;padding:12px}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#075e4b">
+  <title>JALANKU | Malaysia Navigation</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; color: #18352f; background: #eef3f8; }
+    header { background: #075e4b; color: white; padding: 20px 16px; }
+    header h1 { margin: 0; font-size: 28px; }
+    header p { margin: 6px 0 0; font-size: 14px; }
+    main { max-width: 760px; margin: auto; padding: 14px; }
+    .panel { background: white; border-radius: 16px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 10px #1020300a; }
+    label { display: block; font-weight: 700; margin: 8px 0; }
+    input, select, button { width: 100%; font: inherit; border-radius: 10px; padding: 13px; }
+    input, select { border: 1px solid #cbd5e1; background: #fff; color: #172b26; }
+    button { border: 0; font-weight: 700; cursor: pointer; margin-top: 8px; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .primary { background: #075e4b; color: white; }
+    .secondary { background: #e2eee9; color: #075e4b; }
+    #map { height: 340px; min-height: 260px; border-radius: 12px; background: #e5e7eb; overflow: hidden; }
+    #status { background: #f4f7f6; border-radius: 10px; padding: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+    #summary { font-weight: 700; margin-bottom: 8px; }
+    #steps { padding-left: 22px; line-height: 1.5; }
+    #steps li { margin: 7px 0; }
+    .small { color: #52645f; font-size: 12px; line-height: 1.45; }
+    @media (max-width: 420px) { header h1 { font-size: 25px; } #map { height: 300px; } }
+  </style>
 </head>
 <body>
 <header>
-<h1>🇲🇾 JALANKU</h1>
-<p id="tagline">Malaysia Navigation · Navigasi Malaysia</p>
+  <h1>🇲🇾 JALANKU</h1>
+  <p id="tagline">Malaysia Navigation · Navigasi Malaysia</p>
 </header>
 <main>
-<section class="panel">
-<label for="language">Language / Bahasa / 语言</label>
-<select id="language">
-<option value="en">English</option>
-<option value="ms">Bahasa Melayu</option>
-<option value="zh">简体中文</option>
-</select>
-<label id="destLabel" for="destination">Destination</label>
-<input id="destination" placeholder="e.g. KLCC, Kuala Lumpur">
-<button id="routeBtn">Search destination & plan route</button>
-<button id="gpsBtn" class="secondary">📍 Use my GPS location</button>
-<button id="clearBtn" class="secondary">Clear route</button>
-</section>
-<section class="panel">
-<div id="map"></div>
-</section>
-<section class="panel">
-<strong id="infoTitle">Navigation information</strong>
-<p id="status" role="status" aria-live="polite">Loading map...</p>
-<div id="details"></div>
-</section>
-<footer>
-Map data © OpenStreetMap contributors.
-Route service: OSRM demo server.
-<br>Test version only. Always follow road signs and traffic rules.
-</footer>
+  <section class="panel">
+    <label for="language" id="languageLabel">Language / Bahasa / 语言</label>
+    <select id="language">
+      <option value="zh">简体中文</option>
+      <option value="ms">Bahasa Melayu</option>
+      <option value="en">English</option>
+    </select>
+
+    <label for="destination" id="destinationLabel">Destination</label>
+    <input id="destination" type="text" value="" placeholder="Enter destination / 输入目的地" autocomplete="street-address">
+    <button id="routeBtn" class="primary" type="button">Search destination &amp; plan route</button>
+    <button id="gpsBtn" class="secondary" type="button">📍 Use my GPS location</button>
+    <button id="clearBtn" class="secondary" type="button">Clear route</button>
+  </section>
+
+  <section class="panel">
+    <div id="map" role="application" aria-label="JALANKU map"></div>
+  </section>
+
+  <section class="panel">
+    <h2 id="infoTitle" style="font-size:20px;margin:0 0 10px">Navigation information</h2>
+    <div id="status" aria-live="polite">Ready. Allow location access and enter a destination.</div>
+    <div id="summary" style="margin-top:12px"></div>
+    <ol id="steps"></ol>
+    <p class="small" id="disclaimer">Prototype only. Route estimates depend on public map services and may not include live traffic. Always follow road signs.</p>
+  </section>
 </main>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-"use strict";
+(() => {
+  "use strict";
 
-const $ = id => document.getElementById(id);
-const messages = {
- en:{
-  tagline:"Malaysia Navigation",
-  dest:"Destination",search:"Search destination & plan route",
-  gps:"📍 Use my GPS location",clear:"Clear route",
-  info:"Navigation information",loading:"Loading map...",
-  ready:"Map loaded. Allow location access to begin.",
-  locating:"Getting your GPS location...",
-  located:"GPS location obtained.",
-  denied:"Location permission denied. Allow location in browser settings.",
-  noGps:"Location unavailable. Check phone location settings and try again.",
-  timeout:"GPS timed out. Try again outdoors.",
-  enter:"Enter a destination first.",
-  needGps:"Get your GPS position before planning a route.",
-  searching:"Searching destination and calculating route...",
-  notFound:"Destination not found. Try a more specific Malaysian address.",
-  service:"A map or route service is temporarily unavailable. Please try again later.",
-  success:"Route calculated. Follow road signs; this test is not live navigation.",
-  km:"Road distance",mins:"Estimated driving time",steps:"Route steps",
-  error:"Something went wrong. Check your connection and try again."
- },
- ms:{
-  tagline:"Navigasi Malaysia",
-  dest:"Destinasi",search:"Cari destinasi & rancang laluan",
-  gps:"📍 Gunakan lokasi GPS saya",clear:"Padam laluan",
-  info:"Maklumat navigasi",loading:"Memuatkan peta...",
-  ready:"Peta dimuatkan. Benarkan lokasi untuk bermula.",
-  locating:"Mendapatkan lokasi GPS...",
-  located:"Lokasi GPS diperoleh.",
-  denied:"Kebenaran lokasi ditolak. Benarkan lokasi dalam tetapan pelayar.",
-  noGps:"Lokasi tidak tersedia. Semak tetapan lokasi telefon.",
-  timeout:"GPS tamat masa. Cuba lagi di kawasan terbuka.",
-  enter:"Masukkan destinasi dahulu.",
-  needGps:"Dapatkan lokasi GPS sebelum merancang laluan.",
-  searching:"Mencari destinasi dan mengira laluan...",
-  notFound:"Destinasi tidak ditemui. Cuba alamat Malaysia yang lebih khusus.",
-  service:"Perkhidmatan peta atau laluan tidak tersedia buat sementara.",
-  success:"Laluan dikira. Ikut papan tanda jalan; ini bukan navigasi langsung.",
-  km:"Jarak jalan",mins:"Anggaran masa memandu",steps:"Langkah laluan",
-  error:"Ralat berlaku. Semak sambungan dan cuba lagi."
- },
- zh:{
-  tagline:"马来西亚道路导航",
-  dest:"目的地",search:"搜索目的地并规划路线",
-  gps:"📍 使用我的 GPS 定位",clear:"清除路线",
-  info:"导航信息",loading:"正在加载地图...",
-  ready:"地图已加载。请允许定位后开始。",
-  locating:"正在获取 GPS 位置...",
-  located:"GPS 定位成功。",
-  denied:"定位权限被拒绝。请在浏览器设置中允许定位。",
-  noGps:"无法取得位置，请检查手机定位设置。",
-  timeout:"定位超时，请到较开阔的地方重试。",
-  enter:"请先输入目的地。",
-  needGps:"请先获取 GPS 位置，再规划路线。",
-  searching:"正在搜索目的地并计算路线...",
-  notFound:"找不到目的地，请输入更具体的马来西亚地址。",
-  service:"地图或路线服务暂时不可用，请稍后重试。",
-  success:"路线已计算。请遵守道路标志；这不是实时导航。",
-  km:"道路距离",mins:"预计驾驶时间",steps:"路线步骤",
-  error:"发生错误，请检查网络后重试。"
- }
-};
-
-let lang="en";
-let current=null, gpsMarker=null, destinationMarker=null, routeLayer=null;
-let busy=false,lastSearch=0;
-
-const map=L.map("map").setView([4.2,102.2],6);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
- maxZoom:19,
- attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
-
-function status(text){$("status").textContent=text}
-function t(key){return messages[lang][key]}
-function setBusy(value){
- busy=value;
- $("routeBtn").disabled=value;
- $("gpsBtn").disabled=value;
-}
-function applyLanguage(){
- $("tagline").textContent=t("tagline");
- $("destLabel").textContent=t("dest");
- $("routeBtn").textContent=t("search");
- $("gpsBtn").textContent=t("gps");
- $("clearBtn").textContent=t("clear");
- $("infoTitle").textContent=t("info");
- $("destination").placeholder=lang==="zh"?"例如：KLCC, Kuala Lumpur":"e.g. KLCC, Kuala Lumpur";
- status(t("ready"));
-}
-$("language").addEventListener("change",()=>{
- lang=$("language").value;
- applyLanguage();
-});
-
-function clearRoute(){
- if(routeLayer){map.removeLayer(routeLayer);routeLayer=null}
- if(destinationMarker){map.removeLayer(destinationMarker);destinationMarker=null}
- $("details").replaceChildren();
-}
-function getGps(){
- if(!navigator.geolocation){status(t("noGps"));return}
- status(t("locating"));
- $("gpsBtn").disabled=true;
- navigator.geolocation.getCurrentPosition(pos=>{
-  current={lat:pos.coords.latitude,lon:pos.coords.longitude};
-  if(gpsMarker)gpsMarker.setLatLng([current.lat,current.lon]);
-  else gpsMarker=L.marker([current.lat,current.lon]).addTo(map);
-  gpsMarker.bindPopup("My GPS location");
-  map.setView([current.lat,current.lon],16);
-  status(t("located"));
-  $("gpsBtn").disabled=false;
- },err=>{
-  const key=err.code===1?"denied":err.code===3?"timeout":"noGps";
-  status(t(key));$("gpsBtn").disabled=false;
- },{enableHighAccuracy:true,timeout:20000,maximumAge:10000});
-}
-
-async function geocode(query){
- 
-async function geocode(query) {
-  const wait = Math.max(0, 1100 - (Date.now() - lastSearch));
-  if (wait) {
-    await new Promise(resolve => setTimeout(resolve, wait));
-  }
-  lastSearch = Date.now();
-
-  const url = new URL("https://nominatim.openstreetmap.org/search");
-  url.searchParams.set("q", query);
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("limit", "5");
-  url.searchParams.set("countrycodes", "my");
-  url.searchParams.set("accept-language", lang === "zh" ? "zh" : lang);
-
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(t("service"));
-
-  const data = await response.json();
-  if (!data.length) throw new Error(t("notFound"));
-
-  let selected = data[0];
-
-  if (data.length > 1) {
-    const options = data.map((item, index) =>
-      (index + 1) + ". " + item.display_name
-    ).join("\n\n");
-
-    const answer = window.prompt(
-      "Choose the correct destination by number:\n\n" +
-      options +
-      "\n\nEnter a number from 1 to " + data.length,
-      "1"
-    );
-
-    if (answer === null) {
-      throw new Error("Destination selection cancelled.");
+  const $ = (id) => document.getElementById(id);
+  const messages = {
+    en: {
+      tagline: "Malaysia Navigation · Navigasi Malaysia",
+      language: "Language / Bahasa / 语言",
+      destination: "Destination",
+      placeholder: "Enter destination",
+      route: "Search destination & plan route",
+      gps: "📍 Use my GPS location",
+      clear: "Clear route",
+      info: "Navigation information",
+      ready: "Ready. Allow location access and enter a destination.",
+      locating: "Getting your GPS location…",
+      located: "GPS location obtained.",
+      noGps: "GPS location is not available. Please allow location permission and ensure HTTPS is used.",
+      searching: "Searching for destination…",
+      notFound: "Destination not found. Try adding the town or state.",
+      choose: "Choose the correct destination by number:",
+      chooseAgain: "Enter a number from 1 to",
+      cancelled: "Destination selection cancelled.",
+      invalid: "Invalid selection. Please search again.",
+      planning: "Calculating driving route…",
+      routeReady: "Route calculated.",
+      service: "A map or route service is unavailable. Please try again later.",
+      noStart: "First tap “Use my GPS location” to set your starting point.",
+      error: "Something went wrong:",
+      distance: "Distance",
+      duration: "Estimated driving time",
+      disclaimer: "Prototype only. Route estimates depend on public map services and may not include live traffic. Always follow road signs.",
+      clearDone: "Route cleared.",
+      stepStart: "Start",
+      stepArrive: "Arrive",
+      stepContinue: "Continue",
+      stepLeft: "Turn left",
+      stepRight: "Turn right",
+      stepU: "Make a U-turn",
+      stepRound: "Enter roundabout",
+      stepDepart: "Depart",
+      stepTurn: "Turn"
+    },
+    ms: {
+      tagline: "Navigasi Malaysia",
+      language: "Bahasa / Language / 语言",
+      destination: "Destinasi",
+      placeholder: "Masukkan destinasi",
+      route: "Cari destinasi & rancang laluan",
+      gps: "📍 Gunakan lokasi GPS saya",
+      clear: "Padam laluan",
+      info: "Maklumat navigasi",
+      ready: "Sedia. Benarkan akses lokasi dan masukkan destinasi.",
+      locating: "Mendapatkan lokasi GPS…",
+      located: "Lokasi GPS berjaya diperoleh.",
+      noGps: "Lokasi GPS tidak tersedia. Benarkan kebenaran lokasi dan gunakan HTTPS.",
+      searching: "Sedang mencari destinasi…",
+      notFound: "Destinasi tidak dijumpai. Cuba tambah bandar atau negeri.",
+      choose: "Pilih destinasi yang betul mengikut nombor:",
+      chooseAgain: "Masukkan nombor dari 1 hingga",
+      cancelled: "Pemilihan destinasi dibatalkan.",
+      invalid: "Pilihan tidak sah. Sila cari semula.",
+      planning: "Mengira laluan pemanduan…",
+      routeReady: "Laluan berjaya dikira.",
+      service: "Perkhidmatan peta atau laluan tidak tersedia. Cuba lagi kemudian.",
+      noStart: "Tekan “Gunakan lokasi GPS saya” dahulu untuk menetapkan lokasi mula.",
+      error: "Berlaku ralat:",
+      distance: "Jarak",
+      duration: "Anggaran masa memandu",
+      disclaimer: "Versi prototaip. Anggaran laluan bergantung pada perkhidmatan peta awam dan mungkin tidak merangkumi trafik langsung. Ikut papan tanda jalan.",
+      clearDone: "Laluan dipadam.",
+      stepStart: "Mula",
+      stepArrive: "Tiba",
+      stepContinue: "Teruskan",
+      stepLeft: "Belok kiri",
+      stepRight: "Belok kanan",
+      stepU: "Pusing balik",
+      stepRound: "Masuk bulatan",
+      stepDepart: "Berlepas",
+      stepTurn: "Belok"
+    },
+    zh: {
+      tagline: "马来西亚导航 · Malaysia Navigation",
+      language: "语言 / Bahasa / Language",
+      destination: "目的地",
+      placeholder: "输入目的地",
+      route: "搜索目的地并规划路线",
+      gps: "📍 使用我的 GPS 定位",
+      clear: "清除路线",
+      info: "导航信息",
+      ready: "准备就绪。请允许定位，并输入目的地。",
+      locating: "正在获取 GPS 位置…",
+      located: "GPS 定位成功。",
+      noGps: "无法获取 GPS。请允许定位权限，并确认使用 HTTPS 网站。",
+      searching: "正在搜索目的地…",
+      notFound: "找不到目的地。请尝试加入城镇或州名。",
+      choose: "请按编号选择正确的目的地：",
+      chooseAgain: "请输入 1 到以下数字之间的编号：",
+      cancelled: "已取消选择目的地。",
+      invalid: "选择无效，请重新搜索。",
+      planning: "正在计算驾车路线…",
+      routeReady: "路线计算成功。",
+      service: "地图或路线服务暂时无法使用，请稍后重试。",
+      noStart: "请先点击“使用我的 GPS 定位”设定起点。",
+      error: "发生错误：",
+      distance: "路线距离",
+      duration: "预计驾车时间",
+      disclaimer: "这是测试版本。路线估算依赖公共地图服务，可能不包含实时路况。请始终遵守道路标志。",
+      clearDone: "路线已清除。",
+      stepStart: "出发",
+      stepArrive: "到达目的地",
+      stepContinue: "继续行驶",
+      stepLeft: "向左转",
+      stepRight: "向右转",
+      stepU: "掉头",
+      stepRound: "进入环岛",
+      stepDepart: "出发",
+      stepTurn: "转弯"
     }
-
-    const number = Number(answer);
-    if (
-      !Number.isInteger(number) ||
-      number < 1 ||
-      number > data.length
-    ) {
-      throw new Error("Invalid selection. Please search again.");
-    }
-
-    selected = data[number - 1];
-  }
-
-  return {
-    lat: Number(selected.lat),
-    lon: Number(selected.lon),
-    name: selected.display_name
   };
-}
 
-function maneuver(m){
- if(!m)return "Continue";
- const type=m.type, mod=m.modifier||"";
- if(lang==="zh"){
-  if(type==="depart")return "从起点出发";
-  if(type==="arrive")return "到达目的地";
-  if(type==="roundabout"||type==="rotary")return "进入环岛";
-  if(mod.includes("left"))return "向左转";
-  if(mod.includes("right"))return "向右转";
-  if(type==="turn")return "转弯";
-  return "继续行驶";
- }
- if(lang==="ms"){
-  if(type==="depart")return "Bertolak";
-  if(type==="arrive")return "Tiba di destinasi";
-  if(type==="roundabout"||type==="rotary")return "Masuk bulatan";
-  if(mod.includes("left"))return "Belok kiri";
-  if(mod.includes("right"))return "Belok kanan";
-  return "Teruskan perjalanan";
- }
- if(type==="depart")return "Depart";
- if(type==="arrive")return "Arrive";
- if(type==="roundabout"||type==="rotary")return "Enter roundabout";
- if(mod.includes("left"))return "Turn left";
- if(mod.includes("right"))return "Turn right";
- return "Continue";
-}
+  let lang = "zh";
+  let start = null;
+  let startMarker = null;
+  let destinationMarker = null;
+  let routeLine = null;
+  let lastSearch = 0;
 
-async function planRoute(){
- if(busy)return;
- const query=$("destination").value.trim();
- if(!query){status(t("enter"));return}
- if(!current){status(t("needGps"));return}
- setBusy(true);clearRoute();status(t("searching"));
- try{
-  const dest=await geocode(query);
-  destinationMarker=L.marker([dest.lat,dest.lon]).addTo(map);
-  destinationMarker.bindPopup(dest.name);
-  const url="https://router.project-osrm.org/route/v1/driving/"+
-   current.lon+","+current.lat+";"+dest.lon+","+dest.lat+
-   "?overview=full&geometries=geojson&steps=true";
-  const response=await fetch(url);
-  if(!response.ok)throw new Error(t("service"));
-  const data=await response.json();
-  if(data.code!=="Ok"||!data.routes.length)throw new Error(t("service"));
-  const route=data.routes[0];
-  routeLayer=L.geoJSON(route.geometry,{style:{color:"#1674e8",weight:6,opacity:.85}}).addTo(map);
-  map.fitBounds(routeLayer.getBounds(),{padding:[25,25]});
-  status(t("success"));
-  const summary=document.createElement("p");
-  summary.textContent=t("km")+": "+(route.distance/1000).toFixed(1)+" km\n"+
-   t("mins")+": "+Math.round(route.duration/60)+" min";
-  $("details").appendChild(summary);
-  const title=document.createElement("strong");
-  title.textContent=t("steps");$("details").appendChild(title);
-  const list=document.createElement("ol");
-  for(const leg of route.legs){
-   for(const step of leg.steps){
-    const item=document.createElement("li");
-    item.textContent=maneuver(step.maneuver)+" — "+(step.name||"Unnamed road")+
-     " ("+(step.distance/1000).toFixed(2)+" km)";
-    list.appendChild(item);
-   }
+  function t(key) { return (messages[lang] && messages[lang][key]) || messages.en[key] || key; }
+  function status(message) { $("status").textContent = message; }
+  function setBusy(busy) {
+    $("routeBtn").disabled = busy;
+    $("gpsBtn").disabled = busy;
   }
-  $("details").appendChild(list);
- }catch(err){
-  status(err.message||t("error"));
- }finally{setBusy(false)}
-}
-$("gpsBtn").addEventListener("click",getGps);
-$("routeBtn").addEventListener("click",planRoute);
-$("clearBtn").addEventListener("click",()=>{
- clearRoute();status(t("ready"));
-});
-$("destination").addEventListener("keydown",e=>{
- if(e.key==="Enter")planRoute();
-});
-applyLanguage();
+  function clearRoute(showMessage = true) {
+    if (routeLine) map.removeLayer(routeLine);
+    if (destinationMarker) map.removeLayer(destinationMarker);
+    routeLine = null;
+    destinationMarker = null;
+    $("summary").textContent = "";
+    $("steps").replaceChildren();
+    if (showMessage) status(t("clearDone"));
+  }
+  function applyLanguage() {
+    lang = $("language").value;
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
+    $("tagline").textContent = t("tagline");
+    $("languageLabel").textContent = t("language");
+    $("destinationLabel").textContent = t("destination");
+    $("destination").placeholder = t("placeholder");
+    $("routeBtn").textContent = t("route");
+    $("gpsBtn").textContent = t("gps");
+    $("clearBtn").textContent = t("clear");
+    $("infoTitle").textContent = t("info");
+    $("disclaimer").textContent = t("disclaimer");
+  }
+
+  const map = L.map("map").setView([2.0, 103.5], 7);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  function getPosition() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject(new Error(t("noGps")));
+      navigator.geolocation.getCurrentPosition(
+        (position) => resolve({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude
+        }),
+        () => reject(new Error(t("noGps"))),
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
+      );
+    });
+  }
+
+  async function useGps() {
+    status(t("locating"));
+    $("gpsBtn").disabled = true;
+    try {
+      start = await getPosition();
+      if (startMarker) map.removeLayer(startMarker);
+      startMarker = L.marker([start.lat, start.lon]).addTo(map).bindPopup("Your location");
+      map.setView([start.lat, start.lon], 14);
+      status(t("located"));
+    } catch (error) {
+      status(error.message || t("noGps"));
+    } finally {
+      $("gpsBtn").disabled = false;
+    }
+  }
+
+  async function geocode(query) {
+    const wait = Math.max(0, 1100 - (Date.now() - lastSearch));
+    if (wait) await new Promise(resolve => setTimeout(resolve, wait));
+    lastSearch = Date.now();
+
+    const url = new URL("https://nominatim.openstreetmap.org/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("limit", "5");
+    url.searchParams.set("countrycodes", "my");
+    url.searchParams.set("accept-language", lang === "zh" ? "zh" : lang);
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(t("service"));
+    const data = await response.json();
+    if (!data.length) throw new Error(t("notFound"));
+
+    let selected = data[0];
+    if (data.length > 1) {
+      const options = data.map((item, index) => (index + 1) + ". " + item.display_name).join("\n\n");
+      const answer = window.prompt(t("choose") + "\n\n" + options + "\n\n" + t("chooseAgain") + " " + data.length, "1");
+      if (answer === null) throw new Error(t("cancelled"));
+      const number = Number(answer);
+      if (!Number.isInteger(number) || number < 1 || number > data.length) throw new Error(t("invalid"));
+      selected = data[number - 1];
+    }
+    return { lat: Number(selected.lat), lon: Number(selected.lon), name: selected.display_name };
+  }
+
+  function instruction(step) {
+    const type = step.maneuver && step.maneuver.type;
+    const mod = step.maneuver && step.maneuver.modifier || "";
+    if (type === "arrive") return t("stepArrive");
+    if (type === "depart") return t("stepDepart");
+    if (type === "roundabout" || type === "rotary" || type === "roundabout turn") return t("stepRound");
+    if (mod.includes("left")) return t("stepLeft");
+    if (mod.includes("right")) return t("stepRight");
+    if (type === "uturn") return t("stepU");
+    if (type === "turn") return t("stepTurn");
+    return t("stepContinue");
+  }
+
+  function formatDuration(seconds) {
+    const minutes = Math.round(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    if (lang === "zh") return hours ? hours + " 小时 " + rest + " 分钟" : rest + " 分钟";
+    if (lang === "ms") return hours ? hours + " jam " + rest + " minit" : rest + " minit";
+    return hours ? hours + " hr " + rest + " min" : rest + " min";
+  }
+
+  async function planRoute() {
+    const query = $("destination").value.trim();
+    if (!query) {
+      status(t("notFound"));
+      $("destination").focus();
+      return;
+    }
+    if (!start) {
+      status(t("noStart"));
+      return;
+    }
+
+    setBusy(true);
+    clearRoute(false);
+    status(t("searching"));
+    try {
+      const destination = await geocode(query);
+      status(t("planning"));
+      const url = "https://router.project-osrm.org/route/v1/driving/" +
+        start.lon + "," + start.lat + ";" + destination.lon + "," + destination.lat +
+        "?overview=full&geometries=geojson&steps=true";
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(t("service"));
+      const data = await response.json();
+      if (data.code !== "Ok" || !data.routes || !data.routes.length) throw new Error(t("service"));
+
+      const route = data.routes[0];
+      routeLine = L.geoJSON(route.geometry, { style: { color: "#087fbd", weight: 6, opacity: 0.85 } }).addTo(map);
+      destinationMarker = L.marker([destination.lat, destination.lon]).addTo(map).bindPopup(destination.name);
+      map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
+
+      const km = (route.distance / 1000).toFixed(1);
+      $("summary").textContent = t("distance") + ": " + km + " km · " + t("duration") + ": " + formatDuration(route.duration);
+      const list = $("steps");
+      const fragment = document.createDocumentFragment();
+      const legs = route.legs || [];
+      legs.forEach(leg => (leg.steps || []).forEach(step => {
+        const li = document.createElement("li");
+        const road = step.name ? " — " + step.name : "";
+        const distance = step.distance >= 1000 ? (step.distance / 1000).toFixed(1) + " km" : Math.round(step.distance) + " m";
+        li.textContent = instruction(step) + road + " (" + distance + ")";
+        fragment.appendChild(li);
+      }));
+      list.appendChild(fragment);
+      status(t("routeReady"));
+    } catch (error) {
+      status((error && error.message) ? error.message : t("service"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  $("language").addEventListener("change", applyLanguage);
+  $("gpsBtn").addEventListener("click", useGps);
+  $("routeBtn").addEventListener("click", planRoute);
+  $("clearBtn").addEventListener("click", () => clearRoute(true));
+  $("destination").addEventListener("keydown", event => {
+    if (event.key === "Enter") planRoute();
+  });
+
+  applyLanguage();
+  status(t("ready"));
+})();
 </script>
 </body>
 </html>
