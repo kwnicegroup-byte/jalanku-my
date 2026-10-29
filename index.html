@@ -184,20 +184,62 @@ function getGps(){
 }
 
 async function geocode(query){
- const wait=Math.max(0,1100-(Date.now()-lastSearch));
- if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
- lastSearch=Date.now();
- const url=new URL("https://nominatim.openstreetmap.org/search");
- url.searchParams.set("q",query);
- url.searchParams.set("format","jsonv2");
- url.searchParams.set("limit","1");
- url.searchParams.set("countrycodes","my");
- url.searchParams.set("accept-language",lang==="zh"?"zh":lang);
- const response=await fetch(url);
- if(!response.ok)throw new Error(t("service"));
- const data=await response.json();
- if(!data.length)throw new Error(t("notFound"));
- return {lat:Number(data[0].lat),lon:Number(data[0].lon),name:data[0].display_name};
+ 
+async function geocode(query) {
+  const wait = Math.max(0, 1100 - (Date.now() - lastSearch));
+  if (wait) {
+    await new Promise(resolve => setTimeout(resolve, wait));
+  }
+  lastSearch = Date.now();
+
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", "5");
+  url.searchParams.set("countrycodes", "my");
+  url.searchParams.set("accept-language", lang === "zh" ? "zh" : lang);
+
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(t("service"));
+
+  const data = await response.json();
+  if (!data.length) throw new Error(t("notFound"));
+
+  let selected = data[0];
+
+  if (data.length > 1) {
+    const options = data.map((item, index) =>
+      (index + 1) + ". " + item.display_name
+    ).join("\n\n");
+
+    const answer = window.prompt(
+      "Choose the correct destination by number:\n\n" +
+      options +
+      "\n\nEnter a number from 1 to " + data.length,
+      "1"
+    );
+
+    if (answer === null) {
+      throw new Error("Destination selection cancelled.");
+    }
+
+    const number = Number(answer);
+    if (
+      !Number.isInteger(number) ||
+      number < 1 ||
+      number > data.length
+    ) {
+      throw new Error("Invalid selection. Please search again.");
+    }
+
+    selected = data[number - 1];
+  }
+
+  return {
+    lat: Number(selected.lat),
+    lon: Number(selected.lon),
+    name: selected.display_name
+  };
 }
 
 function maneuver(m){
