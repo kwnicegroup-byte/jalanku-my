@@ -1,0 +1,283 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#075e4b">
+<title>JALANKU | Malaysia Navigation</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f1f5f9;color:#15382e}
+header{background:#075e4b;color:white;padding:18px}
+header h1{margin:0;font-size:25px}
+header p{margin:6px 0 0;font-size:13px}
+main{max-width:760px;margin:auto;padding:12px}
+.panel{background:white;border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:14px;font-weight:bold;margin:10px 0 6px}
+input,select,button{width:100%;padding:13px;border-radius:9px;font-size:16px}
+input,select{border:1px solid #cbd5e1;background:white}
+button{border:0;margin-top:9px;background:#075e4b;color:white;font-weight:bold}
+button:disabled{opacity:.6}
+.secondary{background:#e4eee9;color:#075e4b}
+#map{height:48vh;min-height:320px;border-radius:12px}
+#status{white-space:pre-line;line-height:1.6;font-size:14px}
+#details{font-size:14px;line-height:1.7;overflow-wrap:anywhere}
+footer{text-align:center;font-size:12px;color:#64748b;padding:12px}
+</style>
+</head>
+<body>
+<header>
+<h1>🇲🇾 JALANKU</h1>
+<p id="tagline">Malaysia Navigation · Navigasi Malaysia</p>
+</header>
+<main>
+<section class="panel">
+<label for="language">Language / Bahasa / 语言</label>
+<select id="language">
+<option value="en">English</option>
+<option value="ms">Bahasa Melayu</option>
+<option value="zh">简体中文</option>
+</select>
+<label id="destLabel" for="destination">Destination</label>
+<input id="destination" placeholder="e.g. KLCC, Kuala Lumpur">
+<button id="routeBtn">Search destination & plan route</button>
+<button id="gpsBtn" class="secondary">📍 Use my GPS location</button>
+<button id="clearBtn" class="secondary">Clear route</button>
+</section>
+<section class="panel">
+<div id="map"></div>
+</section>
+<section class="panel">
+<strong id="infoTitle">Navigation information</strong>
+<p id="status" role="status" aria-live="polite">Loading map...</p>
+<div id="details"></div>
+</section>
+<footer>
+Map data © OpenStreetMap contributors.
+Route service: OSRM demo server.
+<br>Test version only. Always follow road signs and traffic rules.
+</footer>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const messages = {
+ en:{
+  tagline:"Malaysia Navigation",
+  dest:"Destination",search:"Search destination & plan route",
+  gps:"📍 Use my GPS location",clear:"Clear route",
+  info:"Navigation information",loading:"Loading map...",
+  ready:"Map loaded. Allow location access to begin.",
+  locating:"Getting your GPS location...",
+  located:"GPS location obtained.",
+  denied:"Location permission denied. Allow location in browser settings.",
+  noGps:"Location unavailable. Check phone location settings and try again.",
+  timeout:"GPS timed out. Try again outdoors.",
+  enter:"Enter a destination first.",
+  needGps:"Get your GPS position before planning a route.",
+  searching:"Searching destination and calculating route...",
+  notFound:"Destination not found. Try a more specific Malaysian address.",
+  service:"A map or route service is temporarily unavailable. Please try again later.",
+  success:"Route calculated. Follow road signs; this test is not live navigation.",
+  km:"Road distance",mins:"Estimated driving time",steps:"Route steps",
+  error:"Something went wrong. Check your connection and try again."
+ },
+ ms:{
+  tagline:"Navigasi Malaysia",
+  dest:"Destinasi",search:"Cari destinasi & rancang laluan",
+  gps:"📍 Gunakan lokasi GPS saya",clear:"Padam laluan",
+  info:"Maklumat navigasi",loading:"Memuatkan peta...",
+  ready:"Peta dimuatkan. Benarkan lokasi untuk bermula.",
+  locating:"Mendapatkan lokasi GPS...",
+  located:"Lokasi GPS diperoleh.",
+  denied:"Kebenaran lokasi ditolak. Benarkan lokasi dalam tetapan pelayar.",
+  noGps:"Lokasi tidak tersedia. Semak tetapan lokasi telefon.",
+  timeout:"GPS tamat masa. Cuba lagi di kawasan terbuka.",
+  enter:"Masukkan destinasi dahulu.",
+  needGps:"Dapatkan lokasi GPS sebelum merancang laluan.",
+  searching:"Mencari destinasi dan mengira laluan...",
+  notFound:"Destinasi tidak ditemui. Cuba alamat Malaysia yang lebih khusus.",
+  service:"Perkhidmatan peta atau laluan tidak tersedia buat sementara.",
+  success:"Laluan dikira. Ikut papan tanda jalan; ini bukan navigasi langsung.",
+  km:"Jarak jalan",mins:"Anggaran masa memandu",steps:"Langkah laluan",
+  error:"Ralat berlaku. Semak sambungan dan cuba lagi."
+ },
+ zh:{
+  tagline:"马来西亚道路导航",
+  dest:"目的地",search:"搜索目的地并规划路线",
+  gps:"📍 使用我的 GPS 定位",clear:"清除路线",
+  info:"导航信息",loading:"正在加载地图...",
+  ready:"地图已加载。请允许定位后开始。",
+  locating:"正在获取 GPS 位置...",
+  located:"GPS 定位成功。",
+  denied:"定位权限被拒绝。请在浏览器设置中允许定位。",
+  noGps:"无法取得位置，请检查手机定位设置。",
+  timeout:"定位超时，请到较开阔的地方重试。",
+  enter:"请先输入目的地。",
+  needGps:"请先获取 GPS 位置，再规划路线。",
+  searching:"正在搜索目的地并计算路线...",
+  notFound:"找不到目的地，请输入更具体的马来西亚地址。",
+  service:"地图或路线服务暂时不可用，请稍后重试。",
+  success:"路线已计算。请遵守道路标志；这不是实时导航。",
+  km:"道路距离",mins:"预计驾驶时间",steps:"路线步骤",
+  error:"发生错误，请检查网络后重试。"
+ }
+};
+
+let lang="en";
+let current=null, gpsMarker=null, destinationMarker=null, routeLayer=null;
+let busy=false,lastSearch=0;
+
+const map=L.map("map").setView([4.2,102.2],6);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+ maxZoom:19,
+ attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+function status(text){$("status").textContent=text}
+function t(key){return messages[lang][key]}
+function setBusy(value){
+ busy=value;
+ $("routeBtn").disabled=value;
+ $("gpsBtn").disabled=value;
+}
+function applyLanguage(){
+ $("tagline").textContent=t("tagline");
+ $("destLabel").textContent=t("dest");
+ $("routeBtn").textContent=t("search");
+ $("gpsBtn").textContent=t("gps");
+ $("clearBtn").textContent=t("clear");
+ $("infoTitle").textContent=t("info");
+ $("destination").placeholder=lang==="zh"?"例如：KLCC, Kuala Lumpur":"e.g. KLCC, Kuala Lumpur";
+ status(t("ready"));
+}
+$("language").addEventListener("change",()=>{
+ lang=$("language").value;
+ applyLanguage();
+});
+
+function clearRoute(){
+ if(routeLayer){map.removeLayer(routeLayer);routeLayer=null}
+ if(destinationMarker){map.removeLayer(destinationMarker);destinationMarker=null}
+ $("details").replaceChildren();
+}
+function getGps(){
+ if(!navigator.geolocation){status(t("noGps"));return}
+ status(t("locating"));
+ $("gpsBtn").disabled=true;
+ navigator.geolocation.getCurrentPosition(pos=>{
+  current={lat:pos.coords.latitude,lon:pos.coords.longitude};
+  if(gpsMarker)gpsMarker.setLatLng([current.lat,current.lon]);
+  else gpsMarker=L.marker([current.lat,current.lon]).addTo(map);
+  gpsMarker.bindPopup("My GPS location");
+  map.setView([current.lat,current.lon],16);
+  status(t("located"));
+  $("gpsBtn").disabled=false;
+ },err=>{
+  const key=err.code===1?"denied":err.code===3?"timeout":"noGps";
+  status(t(key));$("gpsBtn").disabled=false;
+ },{enableHighAccuracy:true,timeout:20000,maximumAge:10000});
+}
+
+async function geocode(query){
+ const wait=Math.max(0,1100-(Date.now()-lastSearch));
+ if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
+ lastSearch=Date.now();
+ const url=new URL("https://nominatim.openstreetmap.org/search");
+ url.searchParams.set("q",query);
+ url.searchParams.set("format","jsonv2");
+ url.searchParams.set("limit","1");
+ url.searchParams.set("countrycodes","my");
+ url.searchParams.set("accept-language",lang==="zh"?"zh":lang);
+ const response=await fetch(url);
+ if(!response.ok)throw new Error(t("service"));
+ const data=await response.json();
+ if(!data.length)throw new Error(t("notFound"));
+ return {lat:Number(data[0].lat),lon:Number(data[0].lon),name:data[0].display_name};
+}
+
+function maneuver(m){
+ if(!m)return "Continue";
+ const type=m.type, mod=m.modifier||"";
+ if(lang==="zh"){
+  if(type==="depart")return "从起点出发";
+  if(type==="arrive")return "到达目的地";
+  if(type==="roundabout"||type==="rotary")return "进入环岛";
+  if(mod.includes("left"))return "向左转";
+  if(mod.includes("right"))return "向右转";
+  if(type==="turn")return "转弯";
+  return "继续行驶";
+ }
+ if(lang==="ms"){
+  if(type==="depart")return "Bertolak";
+  if(type==="arrive")return "Tiba di destinasi";
+  if(type==="roundabout"||type==="rotary")return "Masuk bulatan";
+  if(mod.includes("left"))return "Belok kiri";
+  if(mod.includes("right"))return "Belok kanan";
+  return "Teruskan perjalanan";
+ }
+ if(type==="depart")return "Depart";
+ if(type==="arrive")return "Arrive";
+ if(type==="roundabout"||type==="rotary")return "Enter roundabout";
+ if(mod.includes("left"))return "Turn left";
+ if(mod.includes("right"))return "Turn right";
+ return "Continue";
+}
+
+async function planRoute(){
+ if(busy)return;
+ const query=$("destination").value.trim();
+ if(!query){status(t("enter"));return}
+ if(!current){status(t("needGps"));return}
+ setBusy(true);clearRoute();status(t("searching"));
+ try{
+  const dest=await geocode(query);
+  destinationMarker=L.marker([dest.lat,dest.lon]).addTo(map);
+  destinationMarker.bindPopup(dest.name);
+  const url="https://router.project-osrm.org/route/v1/driving/"+
+   current.lon+","+current.lat+";"+dest.lon+","+dest.lat+
+   "?overview=full&geometries=geojson&steps=true";
+  const response=await fetch(url);
+  if(!response.ok)throw new Error(t("service"));
+  const data=await response.json();
+  if(data.code!=="Ok"||!data.routes.length)throw new Error(t("service"));
+  const route=data.routes[0];
+  routeLayer=L.geoJSON(route.geometry,{style:{color:"#1674e8",weight:6,opacity:.85}}).addTo(map);
+  map.fitBounds(routeLayer.getBounds(),{padding:[25,25]});
+  status(t("success"));
+  const summary=document.createElement("p");
+  summary.textContent=t("km")+": "+(route.distance/1000).toFixed(1)+" km\n"+
+   t("mins")+": "+Math.round(route.duration/60)+" min";
+  $("details").appendChild(summary);
+  const title=document.createElement("strong");
+  title.textContent=t("steps");$("details").appendChild(title);
+  const list=document.createElement("ol");
+  for(const leg of route.legs){
+   for(const step of leg.steps){
+    const item=document.createElement("li");
+    item.textContent=maneuver(step.maneuver)+" — "+(step.name||"Unnamed road")+
+     " ("+(step.distance/1000).toFixed(2)+" km)";
+    list.appendChild(item);
+   }
+  }
+  $("details").appendChild(list);
+ }catch(err){
+  status(err.message||t("error"));
+ }finally{setBusy(false)}
+}
+$("gpsBtn").addEventListener("click",getGps);
+$("routeBtn").addEventListener("click",planRoute);
+$("clearBtn").addEventListener("click",()=>{
+ clearRoute();status(t("ready"));
+});
+$("destination").addEventListener("keydown",e=>{
+ if(e.key==="Enter")planRoute();
+});
+applyLanguage();
+</script>
+</body>
+</html>
