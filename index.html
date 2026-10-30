@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#075e4b">
+<title>JALANKU | Malaysia Navigation - Stable Build</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;color:#202124;background:#f1f3f4}
+header{background:#fff;color:#202124;padding:14px 16px;box-shadow:0 2px 8px #00000012;position:relative;z-index:2}
+header h1{margin:0;font-size:25px;color:#176b57}header p{margin:5px 0 0;font-size:13px;color:#5f6368}
+main{max-width:760px;margin:auto;padding:14px}
+.panel{background:#fff;border-radius:18px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #0000000c}
+label{display:block;font-weight:700;margin:8px 0}
+input,select,button{width:100%;font:inherit;border-radius:10px;padding:13px}
+input,select{border:1px solid #cbd5e1;background:#fff;color:#172b26}
+button{border:0;font-weight:700;cursor:pointer;margin-top:8px}
+button:disabled{opacity:.55;cursor:wait}
+.primary{background:#075e4b;color:#fff}.secondary{background:#e2eee9;color:#075e4b}.stop{background:#fbe5e5;color:#9b2222}
+#map{height:48vh;min-height:300px;max-height:560px;border-radius:16px;background:#e5e7eb;overflow:hidden}
+#status{background:#f4f7f6;border-radius:10px;padding:12px;line-height:1.45;overflow-wrap:anywhere}
+#navBanner{display:none;background:#176b57;color:white;padding:18px;border-radius:16px;margin-bottom:12px;box-shadow:0 3px 12px #00000016}
+#nextTurn{font-size:27px;font-weight:700;margin-bottom:5px}
+#nextRoad{font-size:15px}
+#liveSummary{font-size:16px;font-weight:700;margin-top:10px;line-height:1.5}
+#summary{font-weight:700;margin:10px 0}
+#steps{padding-left:22px;line-height:1.5}#steps li{margin:7px 0}
+.small{color:#52645f;font-size:12px;line-height:1.45}
+@media(max-width:420px){header h1{font-size:24px}#map{height:42vh;min-height:280px}}
+</style>
+</head>
+<body>
+<header><h1>🇲🇾 JALANKU</h1><p id="tagline">马来西亚导航 · Malaysia Navigation</p></header>
+<main>
+<section class="panel">
+<label for="language" id="languageLabel">语言 / Bahasa / Language</label>
+<select id="language"><option value="zh">简体中文</option><option value="ms">Bahasa Melayu</option><option value="en">English</option></select>
+<label for="destination" id="destinationLabel">目的地</label>
+<input id="destination" type="text" placeholder="输入目的地" autocomplete="street-address">
+<button id="routeBtn" class="primary" type="button">搜索目的地并规划路线</button>
+<button id="startNavBtn" class="primary" type="button" disabled>▶ 开始实时导航与语音提示</button>
+<button id="stopNavBtn" class="stop" type="button" disabled>■ 停止导航</button>
+<p class="small" id="voiceNote">网页会自动尝试获取 GPS。规划路线后，请点击“开始实时导航与语音提示”，并保持网页打开。</p>
+</section>
+<section class="panel"><div id="navBanner"><div id="nextTurn">准备导航</div><div id="nextRoad"></div><div id="liveSummary"></div></div><div id="map" role="application" aria-label="JALANKU map"></div></section>
+<section class="panel">
+<h2 id="infoTitle" style="font-size:20px;margin:0 0 10px">导航信息</h2>
+<div id="status" aria-live="polite">准备就绪。请允许定位并输入目的地。</div>
+<div id="summary"></div><ol id="steps"></ol>
+<p class="small" id="disclaimer">原型测试版：路线、GPS 与语音依赖手机浏览器及外部免费地图服务，可能不含实时交通，不能保证与专业导航相同。请出发前确认路线；驾驶时不要操作手机。</p>
+</section>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+"use strict";
+const $=id=>document.getElementById(id);
+const messages={
+zh:{tagline:"马来西亚导航 · Malaysia Navigation",language:"语言 / Bahasa / Language",destination:"目的地",placeholder:"输入目的地，例如 KLCC、Kulai",route:"搜索目的地并规划路线",gps:"📍 获取当前位置",startNav:"▶ 开始实时导航与语音提示",stopNav:"■ 停止导航",clear:"清除路线",info:"导航信息",ready:"准备就绪。请允许定位并输入目的地。",locating:"正在获取 GPS 位置…",located:"GPS 定位成功。",noGps:"无法获取 GPS。请允许定位权限，并使用 HTTPS 网站。",searching:"正在搜索目的地…",notFound:"找不到目的地，请加入城镇或州名再试。",choose:"请按编号选择正确的目的地：",chooseAgain:"请输入 1 到以下数字之间的编号：",cancelled:"已取消选择目的地。",invalid:"选择无效，请重新搜索。",planning:"正在计算驾车路线…",routeReady:"路线计算成功。请点击“开始实时导航与语音提示”。",service:"地图或路线服务暂时无法使用，请稍后重试。",noStart:"请先获取 GPS 当前位置，再规划路线。",error:"发生错误：",distance:"路线距离",duration:"预计驾车时间",disclaimer:"原型测试版：路线、GPS 与语音依赖手机浏览器及外部免费地图服务，可能不含实时交通，不能保证与专业导航相同。请出发前确认路线；驾驶时不要操作手机。",clearDone:"路线已清除。",voiceNote:"网页会自动尝试获取 GPS。规划路线后，请点击“开始实时导航与语音提示”，并保持网页打开。",navStarted:"实时导航已开始。请把手机固定在安全位置，并注意道路。",navStopped:"已停止实时导航。",next:"下一步",arrive:"即将到达目的地",left:"向左转",right:"向右转",uturn:"掉头",round:"进入环岛",continue:"继续行驶",depart:"出发",turn:"转弯",offroute:"似乎已偏离路线。当前版本暂不会自动重新规划，请安全停车后重新规划路线。",meters:"米",km:"公里",arrived:"已到达目的地。",rerouting:"检测到你可能偏离路线，正在重新规划…",rerouted:"新路线已规划。请按新的语音提示行驶。",rerouteFail:"自动重新规划失败。请安全停车后重新规划。",offrouteShort:"偏离路线"},
+ms:{tagline:"Navigasi Malaysia",language:"Bahasa / Language / 语言",destination:"Destinasi",placeholder:"Masukkan destinasi, contoh KLCC atau Kulai",route:"Cari destinasi & rancang laluan",gps:"📍 Dapatkan lokasi semasa",startNav:"▶ Mula navigasi langsung & suara",stopNav:"■ Hentikan navigasi",clear:"Padam laluan",info:"Maklumat navigasi",ready:"Sedia. Benarkan lokasi dan masukkan destinasi.",locating:"Mendapatkan lokasi GPS…",located:"Lokasi GPS berjaya diperoleh.",noGps:"GPS tidak tersedia. Benarkan lokasi dan gunakan laman HTTPS.",notFound:"Destinasi tidak dijumpai. Tambah bandar atau negeri.",choose:"Pilih destinasi yang betul mengikut nombor:",chooseAgain:"Masukkan nombor dari 1 hingga",cancelled:"Pemilihan destinasi dibatalkan.",invalid:"Pilihan tidak sah. Sila cari semula.",searching:"Mencari destinasi…",planning:"Mengira laluan pemanduan…",routeReady:"Laluan dikira. Tekan “Mula navigasi langsung & suara”.",service:"Perkhidmatan peta atau laluan tidak tersedia. Cuba lagi nanti.",noStart:"Dapatkan lokasi GPS dahulu sebelum merancang laluan.",error:"Ralat:",distance:"Jarak",duration:"Anggaran masa memandu",disclaimer:"Versi prototaip: laluan, GPS dan suara bergantung pada pelayar serta perkhidmatan peta percuma; trafik langsung mungkin tiada dan ketepatan tidak dijamin seperti aplikasi navigasi profesional. Semak laluan sebelum bergerak. Jangan kendalikan telefon semasa memandu.",clearDone:"Laluan dipadam.",voiceNote:"Laman akan cuba mendapatkan GPS secara automatik. Selepas laluan dirancang, tekan “Mula navigasi langsung & suara” dan biarkan laman terbuka.",navStarted:"Navigasi langsung bermula. Letakkan telefon dengan selamat dan fokus pada jalan.",navStopped:"Navigasi langsung dihentikan.",next:"Seterusnya",arrive:"Hampir tiba",left:"Belok kiri",right:"Belok kanan",uturn:"Pusing balik",round:"Masuk bulatan",continue:"Teruskan",depart:"Mula",turn:"Belok",offroute:"Anda mungkin tersasar. Versi ini belum mengira semula laluan secara automatik. Berhenti dengan selamat untuk merancang semula.",meters:"m",km:"km",arrived:"Anda telah tiba.",rerouting:"Anda mungkin tersasar. Laluan sedang dikira semula…",rerouted:"Laluan baharu tersedia. Ikut arahan suara baharu.",rerouteFail:"Pengiraan semula gagal. Berhenti dengan selamat untuk merancang semula.",offrouteShort:"Tersasar"},
+en:{tagline:"Malaysia Navigation",language:"Language / Bahasa / 语言",destination:"Destination",placeholder:"Enter destination, e.g. KLCC or Kulai",route:"Search destination & plan route",gps:"📍 Get my current location",startNav:"▶ Start live navigation & voice",stopNav:"■ Stop navigation",clear:"Clear route",info:"Navigation information",ready:"Ready. Allow location and enter a destination.",locating:"Getting GPS location…",located:"GPS location obtained.",noGps:"GPS unavailable. Allow location permission and use HTTPS.",notFound:"Destination not found. Add the town or state and try again.",choose:"Choose the correct destination by number:",chooseAgain:"Enter a number from 1 to",cancelled:"Destination selection cancelled.",invalid:"Invalid selection. Please search again.",searching:"Searching for destination…",planning:"Calculating driving route…",routeReady:"Route calculated. Tap “Start live navigation & voice”.",service:"Map or route service unavailable. Please try again later.",noStart:"Get your GPS location before planning a route.",error:"Error:",distance:"Distance",duration:"Estimated driving time",disclaimer:"Prototype: routing, GPS and voice depend on your browser and free external map services; live traffic may be unavailable and accuracy is not guaranteed like a professional navigation app. Check the route before departure. Do not operate the phone while driving.",clearDone:"Route cleared.",voiceNote:"The page will try to get GPS automatically. After planning a route, tap “Start live navigation & voice” and keep this page open.",navStarted:"Live navigation started. Secure the phone and focus on the road.",navStopped:"Live navigation stopped.",next:"Next",arrive:"Arriving at destination",left:"Turn left",right:"Turn right",uturn:"Make a U-turn",round:"Enter roundabout",continue:"Continue",depart:"Depart",turn:"Turn",offroute:"You may be off route. This version does not automatically reroute yet. Stop safely to plan again.",meters:"m",km:"km",arrived:"You have arrived.",rerouting:"You may be off route. Recalculating…",rerouted:"A new route is ready. Follow the updated voice guidance.",rerouteFail:"Automatic rerouting failed. Stop safely and plan again.",offrouteShort:"Off route"}
+};
+let lang="zh", start=null, destinationPoint=null, map=null, startMarker=null, destMarker=null, userMarker=null, routeLayer=null, watchId=null, routeSteps=[], routeCoords=[], stepCursor=0, lastSearch=0, lastSpoken=-1, lastReroute=0, rerouteBusy=false, offRouteCount=0, offRouteWarned=false, totalRouteDistance=0, totalRouteDuration=0;
+function t(k){return messages[lang][k]||messages.en[k]||k}
+function say(text){if(!("speechSynthesis" in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=lang==="zh"?"zh-CN":lang==="ms"?"ms-MY":"en-MY";u.rate=0.92;window.speechSynthesis.speak(u)}
+function status(s){$("status").textContent=s}
+function applyLanguage(){lang=$("language").value;document.documentElement.lang=lang==="zh"?"zh-CN":lang;$("tagline").textContent=t("tagline");$("languageLabel").textContent=t("language");$("destinationLabel").textContent=t("destination");$("destination").placeholder=t("placeholder");$("routeBtn").textContent=t("route");$("startNavBtn").textContent=t("startNav");$("stopNavBtn").textContent=t("stopNav");$("infoTitle").textContent=t("info");$("disclaimer").textContent=t("disclaimer");$("voiceNote").textContent=t("voiceNote")}
+function clearRoute(show=true){stopNavigation(false);if(routeLayer)map.removeLayer(routeLayer);if(destMarker)map.removeLayer(destMarker);routeLayer=destMarker=null;destinationPoint=null;routeCoords=[];routeSteps=[];stepCursor=0;lastSpoken=-1;totalRouteDistance=0;totalRouteDuration=0;$("liveSummary").textContent="";$("summary").textContent="";$("steps").replaceChildren();$("navBanner").style.display="none";$("startNavBtn").disabled=true;if(show)status(t("clearDone"))}
+map=L.map("map").setView([2.0,103.5],7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
+function getPosition(){return new Promise((resolve,reject)=>{if(!navigator.geolocation)return reject(new Error(t("noGps")));navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),()=>reject(new Error(t("noGps"))),{enableHighAccuracy:true,timeout:20000,maximumAge:5000})})}
+async function useGps(){status(t("locating"));try{start=await getPosition();if(startMarker)map.removeLayer(startMarker);startMarker=L.marker([start.lat,start.lon]).addTo(map).bindPopup("Start / 起点");map.setView([start.lat,start.lon],15);status(t("located"));return true}catch(e){status(e.message||t("noGps"));return false}}
+async function geocode(q){const wait=Math.max(0,1100-(Date.now()-lastSearch));if(wait)await new Promise(r=>setTimeout(r,wait));lastSearch=Date.now();const u=new URL("https://nominatim.openstreetmap.org/search");u.searchParams.set("q",q);u.searchParams.set("format","jsonv2");u.searchParams.set("limit","1");u.searchParams.set("countrycodes","my");u.searchParams.set("accept-language",lang==="zh"?"zh":lang);const res=await fetch(u);if(!res.ok)throw new Error(t("service"));const data=await res.json();if(!data.length)throw new Error(t("notFound"));const selected=data[0];return{lat:+selected.lat,lon:+selected.lon,name:selected.display_name}}
+function stepText(s){const type=s.maneuver?.type,mod=s.maneuver?.modifier||"";if(type==="arrive")return t("arrive");if(type==="depart")return t("depart");if(type==="roundabout"||type==="rotary")return t("round");if(type==="uturn")return t("uturn");if(mod.includes("left"))return t("left");if(mod.includes("right"))return t("right");if(type==="turn")return t("turn");return t("continue")}
+function duration(sec){const m=Math.round(sec/60),h=Math.floor(m/60),r=m%60;if(lang==="zh")return h?h+"小时"+r+"分钟":r+"分钟";return h?h+" hr "+r+" min":r+" min"}
+async function planRoute(){const q=$("destination").value.trim();if(!q){status(t("notFound"));return} $("routeBtn").disabled=true;try{const located=await useGps();if(!located||!start)throw new Error(t("noStart"));clearRoute(false);status(t("searching"));const dest=await geocode(q);destinationPoint=dest;status(t("planning"));const u="https://router.project-osrm.org/route/v1/driving/"+start.lon+","+start.lat+";"+dest.lon+","+dest.lat+"?overview=full&geometries=geojson&steps=true";const res=await fetch(u);if(!res.ok)throw new Error(t("service"));const data=await res.json();if(data.code!=="Ok"||!data.routes?.length)throw new Error(t("service"));const r=data.routes[0];totalRouteDistance=r.distance||0;totalRouteDuration=r.duration||0;routeCoords=(r.geometry.coordinates||[]).map(c=>({lat:c[1],lon:c[0]}));routeLayer=L.geoJSON(r.geometry,{style:{color:"#1683d8",weight:7,opacity:.92}}).addTo(map);destMarker=L.marker([dest.lat,dest.lon]).addTo(map).bindPopup(dest.name);map.fitBounds(routeLayer.getBounds(),{padding:[24,24]});$("summary").textContent=t("distance")+": "+(r.distance/1000).toFixed(1)+" km · "+t("duration")+": "+duration(r.duration);const frag=document.createDocumentFragment();routeSteps=[];(r.legs||[]).forEach(leg=>(leg.steps||[]).forEach(s=>{const loc=s.maneuver?.location;if(loc&&loc.length>=2)routeSteps.push({lat:loc[1],lon:loc[0],text:stepText(s),road:s.name||"",distance:s.distance||0});const li=document.createElement("li");const d=s.distance>=1000?(s.distance/1000).toFixed(1)+" km":Math.round(s.distance)+" m";li.textContent=stepText(s)+(s.name?" — "+s.name:"")+" ("+d+")";frag.appendChild(li)}));$("steps").appendChild(frag);$("startNavBtn").disabled=false;status(t("routeReady"))}catch(e){status(e.message||t("service"))}finally{$("routeBtn").disabled=false}}
+function distanceM(a,b){const rad=x=>x*Math.PI/180;const R=6371000;const dLat=rad(b.lat-a.lat),dLon=rad(b.lon-a.lon);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+function nearestRouteDistance(pos){
+ if(!routeCoords.length)return Infinity;
+ // Check sampled route points; sufficiently accurate for prototype off-route detection.
+ let best=Infinity;
+ const stride=Math.max(1,Math.floor(routeCoords.length/500));
+ for(let i=0;i<routeCoords.length;i+=stride){const d=distanceM(pos,routeCoords[i]);if(d<best)best=d}
+ const last=routeCoords[routeCoords.length-1];if(last){const d=distanceM(pos,last);if(d<best)best=d}
+ return best;
+}
+async function recalculateFrom(pos){
+ if(!destinationPoint||rerouteBusy||Date.now()-lastReroute<15000)return;
+ rerouteBusy=true;lastReroute=Date.now();status(t("rerouting"));say(t("rerouting"));
+ try{
+  const u="https://router.project-osrm.org/route/v1/driving/"+pos.lon+","+pos.lat+";"+destinationPoint.lon+","+destinationPoint.lat+"?overview=full&geometries=geojson&steps=true";
+  const res=await fetch(u);if(!res.ok)throw new Error(t("service"));
+  const data=await res.json();if(data.code!=="Ok"||!data.routes?.length)throw new Error(t("service"));
+  const r=data.routes[0];totalRouteDistance=r.distance||0;totalRouteDuration=r.duration||0;if(routeLayer)map.removeLayer(routeLayer);
+  routeCoords=(r.geometry.coordinates||[]).map(c=>({lat:c[1],lon:c[0]}));
+  routeLayer=L.geoJSON(r.geometry,{style:{color:"#1683d8",weight:7,opacity:.92}}).addTo(map);
+  routeSteps=[];(r.legs||[]).forEach(leg=>(leg.steps||[]).forEach(st=>{const loc=st.maneuver?.location;if(loc&&loc.length>=2)routeSteps.push({lat:loc[1],lon:loc[0],text:stepText(st),road:st.name||"",distance:st.distance||0})}));
+  stepCursor=0;lastSpoken=-1;offRouteCount=0;offRouteWarned=false;
+  $("summary").textContent=t("distance")+": "+(r.distance/1000).toFixed(1)+" km · "+t("duration")+": "+duration(r.duration);
+  const frag=document.createDocumentFragment();(r.legs||[]).forEach(leg=>(leg.steps||[]).forEach(st=>{const li=document.createElement("li");const d=st.distance>=1000?(st.distance/1000).toFixed(1)+" km":Math.round(st.distance)+" m";li.textContent=stepText(st)+(st.name?" — "+st.name:"")+" ("+d+")";frag.appendChild(li)}));$("steps").replaceChildren(frag);
+  map.fitBounds(routeLayer.getBounds(),{padding:[24,24]});status(t("rerouted"));say(t("rerouted"));
+ }catch(e){status(t("rerouteFail"));say(t("rerouteFail"))}finally{rerouteBusy=false}
+}
+function updateLiveSummary(){
+ const remaining=routeSteps.slice(stepCursor).reduce((sum,st)=>sum+(st.distance||0),0);
+ const ratio=totalRouteDistance>0?Math.min(1,remaining/totalRouteDistance):0;
+ const remainSec=totalRouteDuration*ratio;
+ const eta=new Date(Date.now()+remainSec*1000);
+ const etaText=eta.toLocaleTimeString(lang==="zh"?"zh-CN":lang==="ms"?"ms-MY":"en-MY",{hour:"2-digit",minute:"2-digit"});
+ const distText=remaining>=1000?(remaining/1000).toFixed(1)+" km":Math.round(remaining)+" m";
+ const labels=lang==="zh"?"剩余约 "+distText+" · 预计到达 "+etaText:lang==="ms"?"Baki kira-kira "+distText+" · Tiba sekitar "+etaText:"About "+distText+" remaining · ETA "+etaText;
+ $("liveSummary").textContent=labels;
+}
+function updateBanner(pos){
+ if(!routeSteps.length)return;
+ while(stepCursor<routeSteps.length-1&&distanceM(pos,routeSteps[stepCursor])<35)stepCursor++;
+ const st=routeSteps[Math.min(stepCursor,routeSteps.length-1)],d=distanceM(pos,st);
+ $("navBanner").style.display="block";$("nextTurn").textContent=st.text;$("nextRoad").textContent=(st.road?st.road+" · ":"")+Math.max(0,Math.round(d))+" "+t("meters");updateLiveSummary();
+ if(d<250&&lastSpoken!==stepCursor){say(st.text+(st.road?(lang==="zh"?"，进入":lang==="ms"?" ke ":" onto ")+st.road:""));lastSpoken=stepCursor}
+ if(stepCursor>=routeSteps.length-1&&d<35){status(t("arrived"));say(t("arrived"));stopNavigation(false);return}
+ const off=nearestRouteDistance(pos);
+ if(off>85){offRouteCount++;if(offRouteCount>=3&&!rerouteBusy){recalculateFrom(pos);offRouteCount=0}}else{offRouteCount=0;offRouteWarned=false}
+}
+function startNavigation(){
+ if(watchId!==null)return;
+ if(!start||!routeLayer){status(t("noStart"));return}
+ if(!navigator.geolocation){status(t("noGps"));return}
+ if("speechSynthesis" in window)say(t("navStarted"));else status(t("navStarted")+" (Voice not supported)");
+ watchId=navigator.geolocation.watchPosition(p=>{
+  const pos={lat:p.coords.latitude,lon:p.coords.longitude};
+  if(userMarker)userMarker.setLatLng([pos.lat,pos.lon]);else userMarker=L.circleMarker([pos.lat,pos.lon],{radius:9,color:"#fff",weight:3,fillColor:"#e05252",fillOpacity:1}).addTo(map).bindPopup("Current location / 当前位置");
+  start=pos;map.panTo([pos.lat,pos.lon],{animate:true});updateBanner(pos)
+ },()=>status(t("noGps")),{enableHighAccuracy:true,maximumAge:2000,timeout:15000});
+ $("startNavBtn").disabled=true;$("stopNavBtn").disabled=false;status(t("navStarted"))
+}
+function stopNavigation(show=true){if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}if(window.speechSynthesis)window.speechSynthesis.cancel();$("startNavBtn").disabled=!routeLayer;$("stopNavBtn").disabled=true;if(show)status(t("navStopped"))}
+$("language").addEventListener("change",applyLanguage);$("routeBtn").addEventListener("click",planRoute);$("startNavBtn").addEventListener("click",startNavigation);$("stopNavBtn").addEventListener("click",()=>stopNavigation(true));$("destination").addEventListener("keydown",e=>{if(e.key==="Enter")planRoute()});
+applyLanguage();useGps().catch(()=>status(t("noGps")));
+})();
+</script>
+</body>
+</html>
