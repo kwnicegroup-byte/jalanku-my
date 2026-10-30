@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#075e4b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JALANKU">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
 <title>JALANKU | Malaysia Road Navigation</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -48,7 +55,7 @@ body.fullscreen-active{overflow:hidden}
 </style>
 </head>
 <body>
-<header><h1>🇲🇾 JALANKU</h1><p id="tagline">马来西亚导航 · Malaysia Navigation</p></header>
+<header><h1>🇲🇾 JALANKU</h1><p id="tagline">马来西亚导航 · Malaysia Navigation</p><button id="installAppBtn" type="button" style="display:none;width:auto;min-height:38px;margin-top:12px;padding:8px 14px;background:#fff;color:#075e4b;border-radius:10px">⬇ 安装 JALANKU APP</button></header>
 <main>
 <section class="panel">
 <label for="language" id="languageLabel">语言 / Bahasa / Language</label>
@@ -193,6 +200,47 @@ function stopNavigation(show=true){if(watchId!==null){navigator.geolocation.clea
 $("language").addEventListener("change",applyLanguage);$("clearHistoryBtn").addEventListener("click",clearHistory);$("fullscreenBtn").addEventListener("click",toggleFullscreen);$("routeBtn").addEventListener("click",planRoute);$("startNavBtn").addEventListener("click",startNavigation);$("stopNavBtn").addEventListener("click",()=>stopNavigation(true));$("destination").addEventListener("keydown",e=>{if(e.key==="Enter")planRoute()});
 applyLanguage();useGps().catch(()=>status(t("noGps")));
 })();
+
+// PWA install support. Install availability depends on the browser and its criteria.
+let deferredInstallPrompt = null;
+const installBtn = document.getElementById("installAppBtn");
+function isStandaloneApp(){
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+function refreshInstallButton(){
+  if (installBtn) installBtn.style.display = (!isStandaloneApp() && (deferredInstallPrompt || /Android/i.test(navigator.userAgent))) ? "inline-block" : "none";
+}
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  refreshInstallButton();
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  if (installBtn) installBtn.style.display = "none";
+});
+if (installBtn) installBtn.addEventListener("click", async () => {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    try { await deferredInstallPrompt.userChoice; } catch (_) {}
+    deferredInstallPrompt = null;
+    refreshInstallButton();
+  } else {
+    const msg = lang === "zh"
+      ? "若没有弹出安装窗口：请在 Chrome 打开本网站，点右上角 ⋮，选择“安装应用”或“添加到主屏幕”。"
+      : lang === "ms"
+      ? "Jika tiada tetingkap pemasangan: buka laman ini dalam Chrome, tekan ⋮ dan pilih “Install app” atau “Add to Home screen”."
+      : "If no install prompt appears: open this site in Chrome, tap ⋮, then choose “Install app” or “Add to Home screen”.";
+    alert(msg);
+  }
+});
+refreshInstallButton();
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+
 </script>
 </body>
 </html>
