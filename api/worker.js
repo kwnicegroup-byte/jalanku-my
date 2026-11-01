@@ -10,7 +10,7 @@ const UPSTREAMS = [
   "https://overpass.private.coffee/api/interpreter",
   "https://overpass-api.de/api/interpreter"
 ];
-const UPSTREAM_TIMEOUT_MS = 9000;
+const UPSTREAM_TIMEOUT_MS = 7000;
 const CACHE_TTL_SECONDS = 300;
 const MAX_QUERY_LENGTH = 1800;
 
@@ -78,7 +78,6 @@ async function fetchUpstream(query) {
         method: "GET",
         headers: {
           "Accept": "application/json",
-          "User-Agent": "JALANKU-Malaysia-Navigation/1.0 (nearby facility lookup)"
         },
         signal: controller.signal,
         cf: { cacheTtl: 0, cacheEverything: false }
@@ -151,7 +150,7 @@ export default {
       return response;
     } catch (error) {
       // Do not expose upstream internals to end users; return a traceable code.
-      return json({ error: "nearby_sources_unavailable", detail: error.message }, 503, origin, {
+      return json({ error: "nearby_sources_unavailable" }, 503, origin, {
         "Retry-After": "5",
         "X-JALANKU-Cache": "MISS"
       });
