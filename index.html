@@ -153,38 +153,86 @@ function writeNearbyStorage(key,payload){
  try{let all={};try{all=JSON.parse(localStorage.getItem(NEARBY_STORAGE_KEY)||"{}")}catch(_){};all[key]={savedAt:Date.now(),payload};const keys=Object.keys(all).sort((a,b)=>(all[b]?.savedAt||0)-(all[a]?.savedAt||0)).slice(0,8);const compact={};for(const k of keys)compact[k]=all[k];localStorage.setItem(NEARBY_STORAGE_KEY,JSON.stringify(compact));}catch(_){}
 }
 async function fetchOverpassFast(query){
- const cacheKey=query.replace(/\s+/g," ").trim();
- const mem=nearbyQueryCache.get(cacheKey);
- if(mem&&Date.now()-mem.savedAt<NEARBY_CACHE_TTL)return new Response(JSON.stringify(mem.payload),{status:200,headers:{"Content-Type":"application/json"}});
- const stored=readNearbyStorage(cacheKey);
- if(stored){nearbyQueryCache.set(cacheKey,{payload:stored,savedAt:Date.now()});return new Response(JSON.stringify(stored),{status:200,headers:{"Content-Type":"application/json"}});}
- const endpoints=[
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.private.coffee/api/interpreter"
- ];
- const errors=[];
- const attempts=endpoints.map(async endpoint=>{
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),15000);
-  try{
-   const response=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},body:"data="+encodeURIComponent(query),signal:controller.signal,cache:"no-store"});
-   if(!response.ok)throw new Error(new URL(endpoint).hostname+" HTTP "+response.status);
-   const payload=await response.json();
-   if(!payload||!Array.isArray(payload.elements))throw new Error(new URL(endpoint).hostname+" invalid response");
-   nearbyQueryCache.set(cacheKey,{payload,savedAt:Date.now()});writeNearbyStorage(cacheKey,payload);
-   return payload;
-  }catch(e){errors.push(e&&e.name==="AbortError"?(new URL(endpoint).hostname+" timed out after 15s"):(e.message||"network/CORS error"));throw e;}
-  finally{clearTimeout(timer);}
- });
- try{
-  const payload=await Promise.any(attempts);
-  return new Response(JSON.stringify(payload),{status:200,headers:{"Content-Type":"application/json"}});
- }catch(error){
-  const details=(error.errors||[]).map(e=>e.message||"request failed").join("; ")||errors.join("; ");
-  const msg=lang==="zh"?"附近设施地图服务器暂时没有回应。请检查网络后重试；首次搜索可能需要等待。详情：":lang==="ms"?"Pelayan peta lokasi berdekatan tidak memberi respons. Semak rangkaian dan cuba lagi. Butiran:":"Nearby map servers did not respond. Check the connection and retry. Details: ";
-  throw new Error(msg+(details||"all map servers failed"));
- }
+  const cacheKey = query.replace(/\s+/g, " ").trim();
+  const now = Date.now();
+
+  const mem = nearbyQueryCache.get(cacheKey);
+  if (mem && now - mem.savedAt < NEARBY_CACHE_TTL) {
+    return new Response(JSON.stringify(mem.payload), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  const stored = readNearbyStorage(cacheKey);
+  if (stored) {
+    nearbyQueryCache.set(cacheKey, { payload: stored, savedAt: now });
+    return new Response(JSON.stringify(stored), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  // Try independent public Overpass instances sequentially rather than
+  // sending the same query to related servers at the same time.
+  const endpoints = [
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter"
+  ];
+  const errors = [];
+
+  for (const endpoint of endpoints) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        body: "data=" + encodeURIComponent(query),
+        signal: controller.signal,
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        throw new Error(new URL(endpoint).hostname + " HTTP " + response.status);
+      }
+
+      const payload = await response.json();
+      if (!payload || !Array.isArray(payload.elements)) {
+        throw new Error(new URL(endpoint).hostname + " invalid response");
+      }
+
+      const savedAt = Date.now();
+      nearbyQueryCache.set(cacheKey, { payload, savedAt });
+      writeNearbyStorage(cacheKey, payload);
+
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      errors.push(
+        error && error.name === "AbortError"
+          ? new URL(endpoint).hostname + " timed out after 10s"
+          : (error.message || "network/CORS error")
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  const details = errors.join("; ");
+  const message = lang === "zh"
+    ? "附近设施地图服务器暂时无法回应。请稍后重试。详情："
+    : lang === "ms"
+      ? "Pelayan peta lokasi berdekatan tidak memberi respons. Cuba lagi sebentar lagi. Butiran: "
+      : "Nearby map servers did not respond. Please retry shortly. Details: ";
+
+  throw new Error(message + (details || "all map servers failed"));
 }
 
 function straightDistanceKm(a,b){const rad=x=>x*Math.PI/180;const dLat=rad(b.lat-a.lat),dLon=rad(b.lon-a.lon);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;return 6371*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
