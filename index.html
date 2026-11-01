@@ -240,22 +240,27 @@ async function fetchOverpassFast(query){
 
 
 function renderNearbyFallback(box,kind,error){
- const isHospital=kind==="hospital",isPolice=kind==="police",isFuel=kind==="fuel";
- const label=isHospital?(lang==="zh"?"附近医院":lang==="ms"?"hospital berdekatan":"hospitals near me"):
-  isPolice?(lang==="zh"?"附近警察局":lang==="ms"?"balai polis berdekatan":"police stations near me"):
-  isFuel?(lang==="zh"?"附近油站":lang==="ms"?"stesen minyak berdekatan":"petrol stations near me"):
-  (lang==="zh"?"附近 ATM":lang==="ms"?"ATM berdekatan":"ATMs near me");
  const msg=document.createElement("div");
  msg.className="search-result-item";
- msg.textContent=(lang==="zh"?"附近设施自动搜索失败。请点击下方按钮使用 Google Maps 查找。详情：":lang==="ms"?"Carian automatik lokasi berdekatan gagal. Tekan butang di bawah untuk menggunakan Google Maps. Butiran: ":"Automatic nearby search failed. Tap the button below to use Google Maps. Details: ")+(error&&error.message?error.message:"map data service unavailable");
+ msg.textContent=(lang==="zh"?"JALANKU 附近设施搜索暂时失败。地图仍留在 JALANKU；请稍后重试。详情：":lang==="ms"?"Carian lokasi berdekatan JALANKU gagal buat sementara waktu. Peta kekal dalam JALANKU; cuba lagi kemudian. Butiran: ":"JALANKU nearby search is temporarily unavailable. You will stay in JALANKU; please retry later. Details: ")+(error&&error.message?error.message:"map data service unavailable");
  box.appendChild(msg);
- const a=document.createElement("a");
- a.className="search-result-item";
- a.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(label);
- a.target="_blank";a.rel="noopener noreferrer";
- a.style.display="block";a.style.boxSizing="border-box";a.style.width="100%";a.style.textAlign="center";a.style.textDecoration="none";a.style.marginTop="10px";a.style.padding="16px 12px";a.style.borderRadius="12px";a.style.background="#0b5d4b";a.style.color="#ffffff";a.style.fontWeight="700";a.style.fontSize="17px";
- a.textContent=lang==="zh"?"🗺️ 在 Google Maps 搜索"+label:lang==="ms"?"🗺️ Cari "+label+" di Google Maps":"🗺️ Search "+label+" in Google Maps";
- box.appendChild(a);
+ const retry=document.createElement("button");
+ retry.type="button";
+ retry.className="search-result-item";
+ retry.style.display="block";
+ retry.style.boxSizing="border-box";
+ retry.style.width="100%";
+ retry.style.textAlign="center";
+ retry.style.marginTop="10px";
+ retry.style.padding="16px 12px";
+ retry.style.borderRadius="12px";
+ retry.style.background="#0b5d4b";
+ retry.style.color="#ffffff";
+ retry.style.fontWeight="700";
+ retry.style.fontSize="17px";
+ retry.textContent=lang==="zh"?"🔄 在 JALANKU 内重试搜索":lang==="ms"?"🔄 Cuba carian semula dalam JALANKU":"🔄 Retry search in JALANKU";
+ retry.addEventListener("click",()=>{if(kind==="hospital"||kind==="police")findNearby(kind);else findNearbyService(kind);});
+ box.appendChild(retry);
 }
 
 function straightDistanceKm(a,b){const rad=x=>x*Math.PI/180;const dLat=rad(b.lat-a.lat),dLon=rad(b.lon-a.lon);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;return 6371*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
