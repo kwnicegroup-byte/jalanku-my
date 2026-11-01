@@ -64,10 +64,10 @@ body.fullscreen-active{overflow:hidden}
 #navBanner{background:linear-gradient(135deg,#075e4b,#187c66)}
 @media(max-width:420px){header h1{font-size:24px}#map{height:42vh;min-height:280px}}
 #open24Row{display:flex;align-items:center;gap:9px;margin:8px 0 12px;font-size:14px}#open24Only{width:20px;height:20px;min-height:20px;accent-color:#087f5b}\n</style>
-<meta name="description" content="JALANKU nearby search speed test copy; does not replace the production page.">
+<meta name="description" content="JALANKU Malaysia road navigation with nearby hospitals, police stations, petrol stations and ATMs.">
 </head>
 <body>
-<header><h1>🇲🇾 JALANKU</h1><p style="margin-top:6px;font-weight:700">NEARBY SEARCH SPEED FIX V3 · 测试版</p><p id="tagline">马来西亚导航 · Malaysia Navigation</p><button id="installAppBtn" type="button" style="display:none;width:auto;min-height:38px;margin-top:12px;padding:8px 14px;background:#fff;color:#075e4b;border-radius:10px">⬇ 安装 JALANKU APP</button></header>
+<header><h1>🇲🇾 JALANKU</h1><p style="margin-top:6px;font-weight:700">Malaysia Navigation · 马来西亚导航</p><p id="tagline">马来西亚导航 · Malaysia Navigation</p><button id="installAppBtn" type="button" style="display:none;width:auto;min-height:38px;margin-top:12px;padding:8px 14px;background:#fff;color:#075e4b;border-radius:10px">⬇ 安装 JALANKU APP</button></header>
 <main>
 <section class="panel">
 <label for="language" id="languageLabel">语言 / Bahasa / Language</label>
@@ -176,9 +176,10 @@ async function fetchOverpassFast(query){
   // Try independent public Overpass instances concurrently so one slow server
   // does not force the user to wait through several sequential timeouts.
   // Keep GET requests to avoid triggering browser CORS preflight.
+  const timeoutMs = 25000;
   const endpoints = [
-    // Global mirror with broad coverage; the previous kumi hostname is unreliable.
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    // LZ4 mirror of the main Overpass service, followed by independent public instances.
+    "https://lz4.overpass-api.de/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
     "https://overpass-api.de/api/interpreter"
   ];
@@ -190,7 +191,7 @@ async function fetchOverpassFast(query){
     const controller = new AbortController();
     controllers.push(controller);
     attempts.push((async () => {
-      const timer = setTimeout(() => controller.abort(), 25000);
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const response = await fetch(endpoint + "?data=" + encodeURIComponent(query), {
           method: "GET",
@@ -211,7 +212,7 @@ async function fetchOverpassFast(query){
         return payload;
       } catch (error) {
         const detail = error && error.name === "AbortError"
-          ? new URL(endpoint).hostname + " timed out after 12s"
+          ? new URL(endpoint).hostname + " timed out after " + Math.round(timeoutMs / 1000) + "s"
           : (new URL(endpoint).hostname + ": " + (error.message || "network/CORS error"));
         errors.push(detail);
         throw new Error(detail);
