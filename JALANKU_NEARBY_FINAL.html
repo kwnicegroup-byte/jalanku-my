@@ -182,7 +182,8 @@ async function fetchOverpassFast(query){
   const response=await Promise.any(attempts);
   // Save a copy without delaying the visible result.
   response.clone().json().then(payload=>{nearbyQueryCache.set(query,{payload,savedAt:Date.now()})}).catch(()=>{});
-  controllers.forEach(controller=>controller.abort());
+  // Do not abort the winning request: the caller still needs to read response.json().
+  // Losing requests already have a 3.5-second timeout and will stop themselves.
   return response;
  }catch(error){
   const details=(error.errors||[]).map(item=>item.message||"network/CORS/timeout").join("; ");
