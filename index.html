@@ -173,8 +173,8 @@ async function fetchOverpassFast(query){
     });
   }
 
-  // Try independent public Overpass instances sequentially rather than
-  // sending the same query to related servers at the same time.
+  // GET avoids a POST body and can be more compatible with browser/network paths.
+  // Try each public instance in sequence; do not send duplicate queries in parallel.
   const endpoints = [
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
     "https://overpass-api.de/api/interpreter",
@@ -187,12 +187,10 @@ async function fetchOverpassFast(query){
     const timer = setTimeout(() => controller.abort(), 10000);
 
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-        },
-        body: "data=" + encodeURIComponent(query),
+      const separator = endpoint.includes("?") ? "&" : "?";
+      const response = await fetch(endpoint + separator + "data=" + encodeURIComponent(query), {
+        method: "GET",
+        headers: { "Accept": "application/json" },
         signal: controller.signal,
         cache: "no-store"
       });
