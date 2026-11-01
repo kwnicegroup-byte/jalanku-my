@@ -247,13 +247,13 @@ function renderNearbyFallback(box,kind,error){
   (lang==="zh"?"附近 ATM":lang==="ms"?"ATM berdekatan":"ATMs near me");
  const msg=document.createElement("div");
  msg.className="search-result-item";
- msg.textContent=(lang==="zh"?"附近设施自动搜索暂时不可用。你可以使用 Google Maps 继续查找。详情：":lang==="ms"?"Carian automatik lokasi berdekatan tidak tersedia. Gunakan Google Maps untuk meneruskan. Butiran: ":"Automatic nearby search is temporarily unavailable. Continue with Google Maps. Details: ")+(error&&error.message?error.message:"map data service unavailable");
+ msg.textContent=(lang==="zh"?"附近设施自动搜索失败。请点击下方按钮使用 Google Maps 查找。详情：":lang==="ms"?"Carian automatik lokasi berdekatan gagal. Tekan butang di bawah untuk menggunakan Google Maps. Butiran: ":"Automatic nearby search failed. Tap the button below to use Google Maps. Details: ")+(error&&error.message?error.message:"map data service unavailable");
  box.appendChild(msg);
  const a=document.createElement("a");
  a.className="search-result-item";
  a.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(label);
  a.target="_blank";a.rel="noopener noreferrer";
- a.style.display="block";a.style.textAlign="center";a.style.textDecoration="none";a.style.marginTop="10px";
+ a.style.display="block";a.style.boxSizing="border-box";a.style.width="100%";a.style.textAlign="center";a.style.textDecoration="none";a.style.marginTop="10px";a.style.padding="16px 12px";a.style.borderRadius="12px";a.style.background="#0b5d4b";a.style.color="#ffffff";a.style.fontWeight="700";a.style.fontSize="17px";
  a.textContent=lang==="zh"?"🗺️ 在 Google Maps 搜索"+label:lang==="ms"?"🗺️ Cari "+label+" di Google Maps":"🗺️ Search "+label+" in Google Maps";
  box.appendChild(a);
 }
