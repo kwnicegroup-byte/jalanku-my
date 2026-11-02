@@ -78,9 +78,15 @@ async function fetchUpstream(query) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
     try {
-      const response = await fetch(endpoint + "?data=" + encodeURIComponent(query), {
-        method: "GET",
-        headers: { "Accept": "application/json" },
+      // POST keeps the Overpass query out of the URL and avoids GET-specific
+      // filtering on mirrors that reject otherwise valid requests.
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: "data=" + encodeURIComponent(query),
         signal: controller.signal,
         cf: { cacheTtl: 0, cacheEverything: false }
       });
