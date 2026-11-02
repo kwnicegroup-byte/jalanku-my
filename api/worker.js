@@ -5,14 +5,15 @@
  * Does not act as a general-purpose URL proxy.
  */
 const ALLOWED_ORIGIN = "https://kwnicegroup-byte.github.io";
-const UPSTREAMS = [
-  // Independent public instance, useful when the main Overpass mirrors are overloaded.
+const PUBLIC_UPSTREAMS = [
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
   "https://lz4.overpass-api.de/api/interpreter",
   "https://overpass-api.de/api/interpreter"
 ];
-const UPSTREAM_TIMEOUT_MS = 10000;
+// Optional: configure a provider URL containing its API key as the
+// Cloudflare Worker secret/variable NEXTGIS_OVERPASS_URL.
+const UPSTREAM_TIMEOUT_MS = 6000;
 const CACHE_TTL_SECONDS = 300;
 const MAX_QUERY_LENGTH = 1800;
 
@@ -70,45 +71,49 @@ function validateAndNormalizeQuery(raw) {
   return "[out:json][timeout:20];(" + clauses.join("") + ");out center tags;";
 }
 
-async function fetchUpstream(query) {
-  // Query independent instances concurrently so one stalled server does not
-  // block the whole search. Return the first valid Overpass response.
+async function fetchOne(endpoint, query) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "User-Agent": "JALANKU-Nearby/1.0 (OpenStreetMap data client)"
+      },
+      body: "data=" + encodeURIComponent(query),
+      signal: controller.signal,
+      cf: { cacheTtl: 0, cacheEverything: false }
+    });
+    if (!response.ok) {
+      throw new Error(new URL(endpoint).hostname + "_http_" + response.status);
+    }
+    const payload = await response.json();
+    if (!payload || !Array.isArray(payload.elements)) {
+      throw new Error(new URL(endpoint).hostname + "_invalid_json");
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchUpstream(query, env) {
   const errors = [];
-  const attempts = UPSTREAMS.map(async (endpoint) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  const endpoints = [
+    ...(env?.NEXTGIS_OVERPASS_URL ? [env.NEXTGIS_OVERPASS_URL] : []),
+    ...PUBLIC_UPSTREAMS
+  ];
+  // Sequential fallback avoids hitting public community servers in parallel.
+  for (const endpoint of endpoints) {
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "JALANKU-Nearby/1.0 (OpenStreetMap data client)"
-        },
-        body: "data=" + encodeURIComponent(query),
-        signal: controller.signal,
-        cf: { cacheTtl: 0, cacheEverything: false }
-      });
-      if (!response.ok) {
-        throw new Error(new URL(endpoint).hostname + "_http_" + response.status);
-      }
-      const payload = await response.json();
-      if (!payload || !Array.isArray(payload.elements)) {
-        throw new Error(new URL(endpoint).hostname + "_invalid_json");
-      }
-      return payload;
+      return await fetchOne(endpoint, query);
     } catch (error) {
       errors.push(error?.message || new URL(endpoint).hostname + "_network_error");
-      throw error;
-    } finally {
-      clearTimeout(timer);
     }
-  });
-  try {
-    return await Promise.any(attempts);
-  } catch {
-    throw new Error(errors.join(",") || "all_upstreams_failed");
   }
+  throw new Error(errors.join(",") || "all_upstreams_failed");
 }
 
 export default {
@@ -146,7 +151,7 @@ export default {
       return new Response(cached.body, { status: 200, headers });
     }
     try {
-      const payload = await fetchUpstream(query);
+      const payload = await fetchUpstream(query, env);
       const response = new Response(JSON.stringify(payload), {
         status: 200,
         headers: {
