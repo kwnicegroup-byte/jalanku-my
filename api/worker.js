@@ -154,8 +154,12 @@ export default {
       ctx.waitUntil(cache.put(cacheKey, response.clone()));
       return response;
     } catch (error) {
-      // Do not expose upstream internals to end users; return a traceable code.
-      return json({ error: "nearby_sources_unavailable" }, 503, origin, {
+      // Return host/status diagnostics (not URLs, credentials, or query data)
+      // so upstream outages can be distinguished from validation/runtime errors.
+      return json({
+        error: "nearby_sources_unavailable",
+        detail: String(error?.message || "all_upstreams_failed").slice(0, 500)
+      }, 503, origin, {
         "Retry-After": "5",
         "X-JALANKU-Cache": "MISS"
       });
