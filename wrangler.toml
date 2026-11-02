@@ -1,0 +1,6 @@
+name = "jalanku-nearby-api"
+main = "api/worker.js"
+compatibility_date = "2026-11-02"
+
+[observability]
+enabled = true
