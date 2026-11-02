@@ -6,11 +6,13 @@
  */
 const ALLOWED_ORIGIN = "https://kwnicegroup-byte.github.io";
 const UPSTREAMS = [
-  "https://lz4.overpass-api.de/api/interpreter",
+  // Independent public instance, useful when the main Overpass mirrors are overloaded.
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
+  "https://lz4.overpass-api.de/api/interpreter",
   "https://overpass-api.de/api/interpreter"
 ];
-const UPSTREAM_TIMEOUT_MS = 7000;
+const UPSTREAM_TIMEOUT_MS = 10000;
 const CACHE_TTL_SECONDS = 300;
 const MAX_QUERY_LENGTH = 1800;
 
@@ -69,36 +71,39 @@ function validateAndNormalizeQuery(raw) {
 }
 
 async function fetchUpstream(query) {
+  // Query independent instances concurrently so one stalled server does not
+  // block the whole search. Return the first valid Overpass response.
   const errors = [];
-  for (const endpoint of UPSTREAMS) {
+  const attempts = UPSTREAMS.map(async (endpoint) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
     try {
       const response = await fetch(endpoint + "?data=" + encodeURIComponent(query), {
         method: "GET",
-        headers: {
-          "Accept": "application/json",
-        },
+        headers: { "Accept": "application/json" },
         signal: controller.signal,
         cf: { cacheTtl: 0, cacheEverything: false }
       });
       if (!response.ok) {
-        errors.push(new URL(endpoint).hostname + "_http_" + response.status);
-        continue;
+        throw new Error(new URL(endpoint).hostname + "_http_" + response.status);
       }
       const payload = await response.json();
       if (!payload || !Array.isArray(payload.elements)) {
-        errors.push(new URL(endpoint).hostname + "_invalid_json");
-        continue;
+        throw new Error(new URL(endpoint).hostname + "_invalid_json");
       }
       return payload;
     } catch (error) {
-      errors.push(new URL(endpoint).hostname + (error?.name === "AbortError" ? "_timeout" : "_network_error"));
+      errors.push(error?.message || new URL(endpoint).hostname + "_network_error");
+      throw error;
     } finally {
       clearTimeout(timer);
     }
+  });
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    throw new Error(errors.join(",") || "all_upstreams_failed");
   }
-  throw new Error(errors.join(",") || "all_upstreams_failed");
 }
 
 export default {
