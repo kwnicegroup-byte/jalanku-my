@@ -1,0 +1,4 @@
+name = "jalanku-nearby-api"
+main = "worker.js"
+compatibility_date = "2026-11-02"
+workers_dev = true
