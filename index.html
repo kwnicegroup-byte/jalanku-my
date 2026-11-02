@@ -173,24 +173,23 @@ async function fetchOverpassFast(query){
     });
   }
 
-  // Try independent public Overpass instances concurrently so one slow server
-  // does not force the user to wait through several sequential timeouts.
-  // Keep GET requests to avoid triggering browser CORS preflight.
-  const timeoutMs = 25000;
+  // Prefer the JALANKU Cloudflare API while retaining public Overpass fallbacks.
+  // Requests run concurrently so a failed or slow upstream does not block a healthy one.
   const endpoints = [
-    // LZ4 mirror of the main Overpass service, followed by independent public instances.
+    "https://jalanku-nearby-api.kw-nicegroup.workers.dev/api/nearby",
     "https://lz4.overpass-api.de/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
     "https://overpass-api.de/api/interpreter"
   ];
   const attempts = [];
   const controllers = [];
-  const errors = [];
 
   for (const endpoint of endpoints) {
     const controller = new AbortController();
     controllers.push(controller);
     attempts.push((async () => {
+      const isJalankuWorker = endpoint.includes("jalanku-nearby-api.kw-nicegroup.workers.dev");
+      const timeoutMs = isJalankuWorker ? 23000 : 25000;
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const response = await fetch(endpoint + "?data=" + encodeURIComponent(query), {
@@ -204,7 +203,8 @@ async function fetchOverpassFast(query){
         }
         const payload = await response.json();
         if (!payload || !Array.isArray(payload.elements)) {
-          throw new Error(new URL(endpoint).hostname + " invalid response");
+          const detail = payload && payload.error ? payload.error : "invalid response";
+          throw new Error(new URL(endpoint).hostname + ": " + detail);
         }
         const savedAt = Date.now();
         nearbyQueryCache.set(cacheKey, { payload, savedAt });
@@ -214,7 +214,6 @@ async function fetchOverpassFast(query){
         const detail = error && error.name === "AbortError"
           ? new URL(endpoint).hostname + " timed out after " + Math.round(timeoutMs / 1000) + "s"
           : (new URL(endpoint).hostname + ": " + (error.message || "network/CORS error"));
-        errors.push(detail);
         throw new Error(detail);
       } finally {
         clearTimeout(timer);
@@ -230,7 +229,7 @@ async function fetchOverpassFast(query){
       headers: { "Content-Type": "application/json" }
     });
   } catch (error) {
-    const details = (error.errors || []).map(e => e.message || "request failed").join("; ") || errors.join("; ");
+    const details = (error.errors || []).map(e => e.message || "request failed").join("; ");
     const message = lang === "zh"
       ? "附近设施地图服务器暂时无法回应。请检查网络后重试。详情："
       : lang === "ms"
@@ -239,7 +238,6 @@ async function fetchOverpassFast(query){
     throw new Error(message + (details || "all map servers failed"));
   }
 }
-
 
 function renderNearbyFallback(box,kind,error){
  const msg=document.createElement("div");
