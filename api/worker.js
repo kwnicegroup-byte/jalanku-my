@@ -78,9 +78,14 @@ async function fetchUpstream(query) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
     try {
-      const response = await fetch(endpoint + "?data=" + encodeURIComponent(query), {
-        method: "GET",
-        headers: { "Accept": "application/json" },
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "User-Agent": "JALANKU-Nearby/1.0 (OpenStreetMap data client)"
+        },
+        body: "data=" + encodeURIComponent(query),
         signal: controller.signal,
         cf: { cacheTtl: 0, cacheEverything: false }
       });
