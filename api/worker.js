@@ -4,7 +4,11 @@
  * Accepts only JALANKU's supported nearby facility query shapes.
  * Does not act as a general-purpose URL proxy.
  */
-const ALLOWED_ORIGIN = "https://kwnicegroup-byte.github.io";
+const ALLOWED_ORIGINS = new Set([
+  "https://kwnicegroup-byte.github.io",
+  "https://jalanku-my.pages.dev"
+]);
+const DEFAULT_ALLOWED_ORIGIN = "https://kwnicegroup-byte.github.io";
 const PUBLIC_UPSTREAMS = [
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
@@ -19,7 +23,7 @@ const MAX_QUERY_LENGTH = 1800;
 
 function corsHeaders(origin) {
   return {
-    "Access-Control-Allow-Origin": origin === ALLOWED_ORIGIN ? ALLOWED_ORIGIN : ALLOWED_ORIGIN,
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : DEFAULT_ALLOWED_ORIGIN,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Accept, Content-Type",
     "Access-Control-Max-Age": "86400",
@@ -129,7 +133,7 @@ export default {
     if (url.pathname !== "/api/nearby" || request.method !== "GET") {
       return json({ error: "not_found" }, 404, origin);
     }
-    if (origin && origin !== ALLOWED_ORIGIN) {
+    if (origin && !ALLOWED_ORIGINS.has(origin)) {
       return json({ error: "origin_not_allowed" }, 403, origin);
     }
     let query;
