@@ -1,0 +1,20 @@
+{
+  "name": "jalanku-mobile-shell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JALANKU cross-platform app shell build",
+  "scripts": {
+    "build:web": "node scripts/build-web.mjs",
+    "cap:sync": "cap sync",
+    "android:debug": "npm run build:web && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/core": "7.4.3",
+    "@capacitor/android": "7.4.3",
+    "@capacitor/ios": "7.4.3",
+    "@capacitor/geolocation": "7.1.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.4.3"
+  }
+}
