@@ -15,6 +15,7 @@
     "@capacitor/geolocation": "7.1.5"
   },
   "devDependencies": {
-    "@capacitor/cli": "7.4.3"
+    "@capacitor/cli": "7.4.3",
+    "typescript": "^5.8.3"
   }
 }
