@@ -375,7 +375,7 @@ function startNavigation(){
  if(watchId!==null)return;
  if(!start||!routeLayer){status(t("noStart"));return}
  if(!navigator.geolocation){status(t("noGps"));return}
- if("speechSynthesis" in window)say(t("navStarted"));else status(t("navStarted")+" (Voice not supported)");
+ const safetyGreeting=lang==="zh"?"小心驾驶，祝您旅途愉快。开车时请勿观看手机，请专心驾驶。":lang==="ms"?"Pandu dengan berhati-hati. Semoga perjalanan anda selamat dan menyenangkan. Jangan melihat telefon semasa memandu.":"Drive safely. Have a pleasant journey. Please do not look at your phone while driving; keep your attention on the road.";if("speechSynthesis" in window)say(safetyGreeting);else status(t("navStarted")+" (Voice not supported)");
  // Switch from whole-route overview to a close road-level navigation view.
  map.setView([start.lat,start.lon],17);
  watchId=navigator.geolocation.watchPosition(p=>{
