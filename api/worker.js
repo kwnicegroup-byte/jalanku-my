@@ -5,6 +5,7 @@
  * Does not act as a general-purpose URL proxy.
  */
 const ALLOWED_ORIGIN = "https://kwnicegroup-byte.github.io";
+const ALLOWED_ORIGINS = new Set([ALLOWED_ORIGIN, "capacitor://localhost", "https://localhost", "http://localhost"]);
 const PUBLIC_UPSTREAMS = [
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
@@ -13,13 +14,13 @@ const PUBLIC_UPSTREAMS = [
 ];
 // Optional: configure a provider URL containing its API key as the
 // Cloudflare Worker secret/variable NEXTGIS_OVERPASS_URL.
-const UPSTREAM_TIMEOUT_MS = 6000;
+const UPSTREAM_TIMEOUT_MS = 5000;
 const CACHE_TTL_SECONDS = 300;
 const MAX_QUERY_LENGTH = 1800;
 
 function corsHeaders(origin) {
   return {
-    "Access-Control-Allow-Origin": origin === ALLOWED_ORIGIN ? ALLOWED_ORIGIN : ALLOWED_ORIGIN,
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : ALLOWED_ORIGIN,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Accept, Content-Type",
     "Access-Control-Max-Age": "86400",
@@ -129,7 +130,7 @@ export default {
     if (url.pathname !== "/api/nearby" || request.method !== "GET") {
       return json({ error: "not_found" }, 404, origin);
     }
-    if (origin && origin !== ALLOWED_ORIGIN) {
+    if (origin && !ALLOWED_ORIGINS.has(origin)) {
       return json({ error: "origin_not_allowed" }, 403, origin);
     }
     let query;
