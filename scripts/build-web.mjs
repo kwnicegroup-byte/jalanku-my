@@ -39,8 +39,8 @@ await build({
 const htmlPath = 'www/index.html';
 const html = await (await import('node:fs/promises')).readFile(htmlPath, 'utf8');
 // Load the native bridge before the app's inline navigation code runs.
-const appScriptStart = '<script>\\n(() => {';
-const moduleAppScriptStart = '<script type="module">\\nimport "./native-geolocation-bridge.js";\\n(() => {';
+const appScriptStart = '<script>\n(() => {';
+const moduleAppScriptStart = '<script type="module">\nimport "./native-geolocation-bridge.js";\n(() => {';
 if (!html.includes(appScriptStart)) {
   throw new Error('Could not find the main JALANKU app script to initialize native GPS before app startup');
 }
