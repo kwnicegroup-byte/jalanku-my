@@ -1,5 +1,6 @@
 import { cp, mkdir, access } from 'node:fs/promises';
 import { build } from 'esbuild';
+import sharp from 'sharp';
 
 const files = [
   'index.html',
@@ -46,5 +47,6 @@ if (!html.includes(bridgeTag)) {
 
 // Prepare the existing JALANKU PWA icon as the source for native launcher icons.
 await mkdir('assets', { recursive: true });
-await cp('icon-512.png', 'assets/icon-only.png');
+await sharp('icon-512.png').resize(1024, 1024).png().toFile('assets/icon-only.png');
+await sharp('icon-512.png').resize(2732, 2732).png().toFile('assets/splash.png');
 console.log('JALANKU web assets, native geolocation bridge and original launcher icon source prepared.');
