@@ -40,7 +40,7 @@ const htmlPath = 'www/index.html';
 const html = await (await import('node:fs/promises')).readFile(htmlPath, 'utf8');
 const bridgeTag = '<script type="module" src="./native-geolocation-bridge.js"></script>';
 if (!html.includes(bridgeTag)) {
-  const updated = html.replace('</head>', `  ${bridgeTag}\\n</head>`);
+  const updated = html.replace('</head>', '  ' + bridgeTag + String.fromCharCode(10) + '</head>');
   if (updated === html) throw new Error('Could not inject native geolocation bridge into mobile copy of index.html');
   await (await import('node:fs/promises')).writeFile(htmlPath, updated, 'utf8');
 }
