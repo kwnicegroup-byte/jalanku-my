@@ -38,12 +38,14 @@ await build({
 
 const htmlPath = 'www/index.html';
 const html = await (await import('node:fs/promises')).readFile(htmlPath, 'utf8');
-const bridgeTag = '<script type="module" src="./native-geolocation-bridge.js"></script>';
-if (!html.includes(bridgeTag)) {
-  const updated = html.replace('</head>', '  ' + bridgeTag + String.fromCharCode(10) + '</head>');
-  if (updated === html) throw new Error('Could not inject native geolocation bridge into mobile copy of index.html');
-  await (await import('node:fs/promises')).writeFile(htmlPath, updated, 'utf8');
+// Load the native bridge before the app's inline navigation code runs.
+const appScriptStart = '<script>\\n(() => {';
+const moduleAppScriptStart = '<script type="module">\\nimport "./native-geolocation-bridge.js";\\n(() => {';
+if (!html.includes(appScriptStart)) {
+  throw new Error('Could not find the main JALANKU app script to initialize native GPS before app startup');
 }
+const updated = html.replace(appScriptStart, moduleAppScriptStart);
+await (await import('node:fs/promises')).writeFile(htmlPath, updated, 'utf8');
 
 // Use the user-confirmed green JALANKU logo uploaded to this test branch.
 const originalLogo = 'file_000000006e4c82119265d2825bc14356.png';
