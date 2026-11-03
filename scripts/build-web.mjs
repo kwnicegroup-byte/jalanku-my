@@ -45,8 +45,14 @@ if (!html.includes(bridgeTag)) {
   await (await import('node:fs/promises')).writeFile(htmlPath, updated, 'utf8');
 }
 
-// Prepare the existing JALANKU PWA icon as the source for native launcher icons.
+// Use the user-confirmed green JALANKU logo uploaded to this test branch.
+const originalLogo = 'file_000000006e4c82119265d2825bc14356.png';
+await access(originalLogo);
 await mkdir('assets', { recursive: true });
-await sharp('icon-512.png').resize(1024, 1024).png().toFile('assets/icon-only.png');
-await sharp('icon-512.png').resize(2732, 2732).png().toFile('assets/splash.png');
-console.log('JALANKU web assets, native geolocation bridge and original launcher icon source prepared.');
+await sharp(originalLogo).resize(1024, 1024, { fit: 'contain', background: '#087b45' }).png().toFile('assets/icon-only.png');
+await sharp(originalLogo).resize(2732, 2732, { fit: 'contain', background: '#087b45' }).png().toFile('assets/splash.png');
+// Replace the mobile app's copied PWA icons with the same confirmed logo.
+for (const [name, size] of [['icon-192.png', 192], ['icon-512.png', 512], ['icon-512-maskable.png', 512]]) {
+  await sharp(originalLogo).resize(size, size, { fit: 'contain', background: '#087b45' }).png().toFile(`www/${name}`);
+}
+console.log('Confirmed JALANKU logo applied to native launcher assets and mobile PWA icons.');
