@@ -125,11 +125,10 @@ async function toggleFullscreen(){
  updateFullscreenLabel();setTimeout(()=>map.invalidateSize(),180);
 }
 document.addEventListener("fullscreenchange",()=>{if(!document.fullscreenElement&&isFullscreenMode()){ $("mapPanel").classList.remove("fullscreen-mode");document.body.classList.remove("fullscreen-active");updateFullscreenLabel();setTimeout(()=>map.invalidateSize(),180)}});
-let safetyGreetingPlaying=false;let deferredNavSpeech=[];
-function say(text){if(!("speechSynthesis" in window))return;if(safetyGreetingPlaying){deferredNavSpeech.push(text);return}window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=lang==="zh"?"zh-CN":lang==="ms"?"ms-MY":"en-MY";u.rate=0.92;window.speechSynthesis.speak(u)}
-function speakSafetyGreeting(text){if(!("speechSynthesis" in window))return false;window.speechSynthesis.cancel();safetyGreetingPlaying=true;const u=new SpeechSynthesisUtterance(text);u.lang=lang==="zh"?"zh-CN":lang==="ms"?"ms-MY":"en-MY";u.rate=0.92;u.onend=finishSafetyGreeting;u.onerror=finishSafetyGreeting;window.speechSynthesis.speak(u);return true}
-function finishSafetyGreeting(){if(!safetyGreetingPlaying)return;safetyGreetingPlaying=false;speakDeferredNavSpeech()}
-function speakDeferredNavSpeech(){const text=deferredNavSpeech.shift();if(!text)return;const u=new SpeechSynthesisUtterance(text);u.lang=lang==="zh"?"zh-CN":lang==="ms"?"ms-MY":"en-MY";u.rate=0.92;u.onend=speakDeferredNavSpeech;u.onerror=speakDeferredNavSpeech;window.speechSynthesis.speak(u)}
+let safetyGreetingPlaying=false;
+function makeNavigationUtterance(text){const u=new SpeechSynthesisUtterance(text);u.lang=lang==="zh"?"zh-CN":lang==="ms"?"ms-MY":"en-MY";u.rate=0.92;return u}
+function say(text){if(!("speechSynthesis" in window))return;const u=makeNavigationUtterance(text);window.speechSynthesis.speak(u)}
+function speakSafetyGreeting(text){if(!("speechSynthesis" in window))return false;window.speechSynthesis.cancel();safetyGreetingPlaying=true;const u=makeNavigationUtterance(text);u.onend=()=>{safetyGreetingPlaying=false};window.speechSynthesis.speak(u);return true}
 function status(s){$("status").textContent=s}
 const HISTORY_KEY="jalanku_recent_destinations_v1";
 function getHistory(){try{const v=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(v)?v.filter(x=>typeof x==="string").slice(0,6):[]}catch(e){return []}}
@@ -389,7 +388,7 @@ function startNavigation(){
  },()=>status(t("noGps")),{enableHighAccuracy:true,maximumAge:2000,timeout:15000});
  $("startNavBtn").disabled=true;$("stopNavBtn").disabled=false;status(t("navStarted"))
 }
-function stopNavigation(show=true){if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}if(window.speechSynthesis)window.speechSynthesis.cancel();safetyGreetingPlaying=false;deferredNavSpeech=[];$("startNavBtn").disabled=!routeLayer;$("stopNavBtn").disabled=true;if(show)status(t("navStopped"))}
+function stopNavigation(show=true){if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}if(window.speechSynthesis)window.speechSynthesis.cancel();safetyGreetingPlaying=false;$("startNavBtn").disabled=!routeLayer;$("stopNavBtn").disabled=true;if(show)status(t("navStopped"))}
 $("language").addEventListener("change",applyLanguage);$("clearHistoryBtn").addEventListener("click",clearHistory);$("fullscreenBtn").addEventListener("click",toggleFullscreen);$("routeBtn").addEventListener("click",()=>searchDestinations(false));$("nearHospitalBtn").addEventListener("click",()=>findNearby("hospital"));$("nearPoliceBtn").addEventListener("click",()=>findNearby("police"));$("nearFuelBtn").addEventListener("click",()=>findNearbyService("fuel"));$("nearAtmBtn").addEventListener("click",()=>findNearbyService("atm"));$("emergencyBtn").addEventListener("click",()=>{if(confirm(lang==="zh"?"即将打开手机拨号器拨打马来西亚紧急号码 999。是否继续？":lang==="ms"?"Buka pendail untuk menghubungi nombor kecemasan Malaysia 999?":"Open the phone dialer to call Malaysia emergency number 999?"))window.location.href="tel:999"});$("startNavBtn").addEventListener("click",startNavigation);$("stopNavBtn").addEventListener("click",()=>stopNavigation(true));$("destination").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if(liveSearchTimer)clearTimeout(liveSearchTimer);searchDestinations(false)}});$("destination").addEventListener("input",()=>{if(liveSearchTimer)clearTimeout(liveSearchTimer);liveSearchSeq++;const q=$("destination").value.trim();if(q.length<3){$("searchResults").style.display="none";return}liveSearchTimer=setTimeout(()=>searchDestinations(true),850)});
 applyLanguage();useGps().catch(()=>status(t("noGps")));
 })();
