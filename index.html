@@ -161,7 +161,7 @@ function writeNearbyStorage(key,payload){
  try{let all={};try{all=JSON.parse(localStorage.getItem(NEARBY_STORAGE_KEY)||"{}")}catch(_){};all[key]={savedAt:Date.now(),payload};const keys=Object.keys(all).sort((a,b)=>(all[b]?.savedAt||0)-(all[a]?.savedAt||0)).slice(0,8);const compact={};for(const k of keys)compact[k]=all[k];localStorage.setItem(NEARBY_STORAGE_KEY,JSON.stringify(compact));}catch(_){}
 }
 async function fetchOverpassFast(query){
-  const cacheKey = query.replace(/\s+/g, " ").trim();
+  const cacheKey = query.replace(/\\s+/g, " ").trim();
   const now = Date.now();
 
   const mem = nearbyQueryCache.get(cacheKey);
@@ -181,69 +181,44 @@ async function fetchOverpassFast(query){
     });
   }
 
-  // Prefer the JALANKU Cloudflare API while retaining public Overpass fallbacks.
-  // Requests run concurrently so a failed or slow upstream does not block a healthy one.
-  const endpoints = [
-    "https://jalanku-nearby-api.kw-nicegroup.workers.dev/api/nearby",
-    "https://lz4.overpass-api.de/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
-    "https://overpass-api.de/api/interpreter"
-  ];
-  const attempts = [];
-  const controllers = [];
-
-  for (const endpoint of endpoints) {
-    const controller = new AbortController();
-    controllers.push(controller);
-    attempts.push((async () => {
-      const isJalankuWorker = endpoint.includes("jalanku-nearby-api.kw-nicegroup.workers.dev");
-      const timeoutMs = isJalankuWorker ? 23000 : 25000;
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const response = await fetch(endpoint + "?data=" + encodeURIComponent(query), {
-          method: "GET",
-          headers: { "Accept": "application/json" },
-          signal: controller.signal,
-          cache: "no-store"
-        });
-        if (!response.ok) {
-          throw new Error(new URL(endpoint).hostname + " HTTP " + response.status);
-        }
-        const payload = await response.json();
-        if (!payload || !Array.isArray(payload.elements)) {
-          const detail = payload && payload.error ? payload.error : "invalid response";
-          throw new Error(new URL(endpoint).hostname + ": " + detail);
-        }
-        const savedAt = Date.now();
-        nearbyQueryCache.set(cacheKey, { payload, savedAt });
-        writeNearbyStorage(cacheKey, payload);
-        return payload;
-      } catch (error) {
-        const detail = error && error.name === "AbortError"
-          ? new URL(endpoint).hostname + " timed out after " + Math.round(timeoutMs / 1000) + "s"
-          : (new URL(endpoint).hostname + ": " + (error.message || "network/CORS error"));
-        throw new Error(detail);
-      } finally {
-        clearTimeout(timer);
-      }
-    })());
-  }
-
+  // All nearby requests go through JALANKU's Worker. It owns upstream
+  // fallback, caching and diagnostics; the app must not hit public Overpass
+  // servers directly (native WebView CORS and duplicate requests).
+  const endpoint = "https://jalanku-nearby-api.kw-nicegroup.workers.dev/api/nearby";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 28000);
   try {
-    const payload = await Promise.any(attempts);
-    controllers.forEach(controller => controller.abort());
+    const response = await fetch(endpoint + "?data=" + encodeURIComponent(query), {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+      signal: controller.signal,
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      let detail = "HTTP " + response.status;
+      try {
+        const failure = await response.json();
+        if (failure && failure.detail) detail += ": " + failure.detail;
+      } catch (_) {}
+      throw new Error("JALANKU nearby API " + detail);
+    }
+    const payload = await response.json();
+    if (!payload || !Array.isArray(payload.elements)) {
+      throw new Error("JALANKU nearby API returned invalid data");
+    }
+    nearbyQueryCache.set(cacheKey, { payload, savedAt: Date.now() });
+    writeNearbyStorage(cacheKey, payload);
     return new Response(JSON.stringify(payload), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
   } catch (error) {
-    const details = (error.errors || []).map(e => e.message || "request failed").join("; ");
-    const message = lang === "zh"
-      ? "附近设施地图服务器暂时无法回应。请检查网络后重试。详情："
-      : lang === "ms"
-        ? "Pelayan peta lokasi berdekatan tidak memberi respons. Semak rangkaian dan cuba lagi. Butiran: "
-        : "Nearby map servers did not respond. Check the connection and retry. Details: ";
-    throw new Error(message + (details || "all map servers failed"));
+    const detail = error && error.name === "AbortError"
+      ? "JALANKU nearby API timed out after 28s"
+      : (error.message || "network/CORS error");
+    throw new Error(detail);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
