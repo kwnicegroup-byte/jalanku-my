@@ -63,21 +63,18 @@ body.fullscreen-active{overflow:hidden}
 #mapPanel{padding:12px}
 #navBanner{background:linear-gradient(135deg,#075e4b,#187c66)}
 @media(max-width:420px){header h1{font-size:24px}#map{height:42vh;min-height:280px}}
-#open24Row{display:flex;align-items:center;gap:9px;margin:8px 0 12px;font-size:14px}#open24Only{width:20px;height:20px;min-height:20px;accent-color:#087f5b}\n</style>
+#open24Row{display:flex;align-items:center;gap:9px;margin:8px 0 12px;font-size:14px}#open24Only{width:20px;height:20px;min-height:20px;accent-color:#087f5b}\n\n.search-topbar{display:flex;justify-content:flex-end;align-items:center;margin:-5px 0 10px}.search-topbar-spacer{flex:1}.compact-selects{display:flex;gap:7px;align-items:end}.compact-field{display:flex;flex-direction:column;gap:3px;margin:0;font-size:10px;color:#52645f;font-weight:700}.compact-field select{width:auto;min-width:68px;min-height:32px;height:32px;padding:4px 22px 4px 7px;border-radius:8px;font-size:12px;background:#f4f9f6}.compact-field:first-child select{min-width:76px}#destination{width:100%}#searchResults{margin-top:8px;max-height:34vh;overflow-y:auto;overscroll-behavior:contain}#recentSearchPanel{margin-top:8px}#recentSearchPanel[hidden]{display:none!important}\n</style>
 <meta name="description" content="JALANKU Malaysia road navigation with nearby hospitals, police stations, petrol stations and ATMs.">
 </head>
 <body>
 <header><h1>🇲🇾 JALANKU</h1><p style="margin-top:6px;font-weight:700">Malaysia Navigation · 马来西亚导航</p><p id="tagline">马来西亚导航 · Malaysia Navigation</p><button id="installAppBtn" type="button" style="display:none;width:auto;min-height:38px;margin-top:12px;padding:8px 14px;background:#fff;color:#075e4b;border-radius:10px">⬇ 安装 JALANKU APP</button></header>
 <main>
 <section class="panel">
-<label for="language" id="languageLabel">语言 / Bahasa / Language</label>
-<select id="language"><option value="zh">简体中文</option><option value="ms">Bahasa Melayu</option><option value="en">English</option></select>
-<label for="country" id="countryLabel">导航国家 / Negara / Country</label>
-<select id="country"><option value="my">🇲🇾 Malaysia / 马来西亚</option><option value="sg">🇸🇬 Singapore / 新加坡</option><option value="th">🇹🇭 Thailand / 泰国</option></select>
+<div class="search-topbar"><div class="search-topbar-spacer"></div><div class="compact-selects"><label class="compact-field"><span id="countryLabel">国家</span><select id="country"><option value="my">🇲🇾 MY</option><option value="sg">🇸🇬 SG</option><option value="th">🇹🇭 TH</option></select></label><label class="compact-field"><span id="languageLabel">语言</span><select id="language"><option value="zh">中文</option><option value="ms">BM</option><option value="en">EN</option></select></label></div></div>
 <label for="destination" id="destinationLabel">目的地</label>
 <input id="destination" type="text" placeholder="输入目的地" autocomplete="street-address">
-<div class="history-head"><span class="history-title" id="historyTitle">最近搜索</span><button id="clearHistoryBtn" type="button">清除记录</button></div>
-<div id="historyList" aria-label="Recent destinations"><span class="history-empty">暂无搜索记录</span></div>
+<div id="searchResults" role="listbox" aria-label="Destination search results" aria-busy="false"></div>
+<div id="recentSearchPanel"><div class="history-head"><span class="history-title" id="historyTitle">最近搜索</span><button id="clearHistoryBtn" type="button">清除记录</button></div><div id="historyList" aria-label="Recent destinations"><span class="history-empty">暂无搜索记录</span></div></div>
 <div id="priorityPlaces">
 <button id="nearHospitalBtn" class="priority-place-btn" type="button">🏥 最近医院</button>
 <button id="nearPoliceBtn" class="priority-place-btn" type="button">🚓 最近警察局</button>
@@ -87,7 +84,6 @@ body.fullscreen-active{overflow:hidden}
 <label id="open24Row"><input id="open24Only" type="checkbox"> <span id="open24Label">只显示标记为24小时营业的地点</span></label>
 <button id="emergencyBtn" type="button" style="width:100%;min-height:54px;margin:8px 0;background:#b91c1c;color:#fff;border:2px solid #991b1b;border-radius:12px;font-size:17px;font-weight:800">🆘 紧急求助 · 拨打 999</button>
 <button id="routeBtn" class="primary" type="button">搜索目的地并规划路线</button>
-<div id="searchResults" role="listbox" aria-label="Destination search results" aria-busy="false"></div>
 <button id="startNavBtn" class="primary" type="button" disabled>▶ 开始实时导航与语音提示</button>
 <button id="stopNavBtn" class="stop" type="button" disabled>■ 停止导航</button>
 <p class="small" id="voiceNote">网页会自动尝试获取 GPS。规划路线后，请点击“开始实时导航与语音提示”，并保持网页打开。</p>
@@ -134,7 +130,7 @@ function speakSafetyGreeting(text){if(!("speechSynthesis" in window))return fals
 function status(s){$("status").textContent=s}
 const HISTORY_KEY="jalanku_recent_destinations_v1";
 function getHistory(){try{const v=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(v)?v.filter(x=>typeof x==="string").slice(0,6):[]}catch(e){return []}}
-function renderHistory(){const box=$("historyList");box.replaceChildren();const items=getHistory();if(!items.length){const empty=document.createElement("span");empty.className="history-empty";empty.textContent=t("historyEmpty");box.appendChild(empty);return}items.forEach(name=>{const b=document.createElement("button");b.type="button";b.className="history-item";b.textContent="↺ "+name;b.title=name;b.addEventListener("click",()=>{$("destination").value=name;$ ("destination").focus()});box.appendChild(b)})}
+function renderHistory(){const box=$("historyList");box.replaceChildren();const items=getHistory();$("recentSearchPanel").hidden=$("destination").value.trim().length>0;if(!items.length){const empty=document.createElement("span");empty.className="history-empty";empty.textContent=t("historyEmpty");box.appendChild(empty);return}items.forEach(name=>{const b=document.createElement("button");b.type="button";b.className="history-item";b.textContent="↺ "+name;b.title=name;b.addEventListener("click",()=>{$("destination").value=name;$("recentSearchPanel").hidden=true;$("destination").focus();const seq=++liveSearchSeq;if(liveSearchTimer)clearTimeout(liveSearchTimer);liveSearchTimer=setTimeout(()=>runAutocomplete(name,seq),0)});box.appendChild(b)})}
 function rememberDestination(name){const clean=(name||"").trim();if(!clean)return;try{const items=getHistory().filter(x=>x.toLowerCase()!==clean.toLowerCase());items.unshift(clean);localStorage.setItem(HISTORY_KEY,JSON.stringify(items.slice(0,6)))}catch(e){}renderHistory()}
 function clearHistory(){try{localStorage.removeItem(HISTORY_KEY)}catch(e){}renderHistory()}
 function applyLanguage(){lang=$("language").value;document.documentElement.lang=lang==="zh"?"zh-CN":lang;$("tagline").textContent=t("tagline");$("languageLabel").textContent=t("language");$("countryLabel").textContent=t("country");$("destinationLabel").textContent=t("destination");$("historyTitle").textContent=t("historyTitle");$("clearHistoryBtn").textContent=t("clearHistory");$("destination").placeholder=t("placeholder");$("routeBtn").textContent=t("route");$("nearHospitalBtn").textContent=t("nearHospital");$("nearPoliceBtn").textContent=t("nearPolice");$("nearFuelBtn").textContent=t("nearFuel");$("nearAtmBtn").textContent=t("nearAtm");$("open24Label").textContent=t("open24");$("emergencyBtn").textContent=t("emergency");$("startNavBtn").textContent=t("startNav");$("stopNavBtn").textContent=t("stopNav");$("infoTitle").textContent=t("info");$("disclaimer").textContent=t("disclaimer");$("voiceNote").textContent=t("voiceNote");updateFullscreenLabel();renderHistory()}
@@ -147,6 +143,65 @@ async function useGps(){try{if(start&&Number.isFinite(start.lat)&&Number.isFinit
 let selectedCountry="my";
 const countryViews={my:{center:[4.2,102.2],zoom:6},sg:{center:[1.3521,103.8198],zoom:11},th:{center:[15.2,101.0],zoom:6}};
 async function geocode(q){const wait=Math.max(0,1100-(Date.now()-lastSearch));if(wait)await new Promise(r=>setTimeout(r,wait));lastSearch=Date.now();const u=new URL("https://nominatim.openstreetmap.org/search");u.searchParams.set("q",q);u.searchParams.set("format","jsonv2");u.searchParams.set("limit","5");u.searchParams.set("countrycodes",selectedCountry);u.searchParams.set("accept-language",lang==="zh"?"zh":lang==="ms"?"ms": "en");const res=await fetch(u);if(!res.ok)throw new Error(t("service"));const data=await res.json();return data.map(item=>({lat:+item.lat,lon:+item.lon,name:item.display_name||q,title:item.name||((item.display_name||q).split(",")[0]),type:item.type||""})).filter(item=>Number.isFinite(item.lat)&&Number.isFinite(item.lon))}
+
+/* JALANKU TEST: Photon-based destination suggestions.
+   Keystroke requests are debounced and the previous request is cancelled.
+   Existing Nominatim manual search and route planner remain unchanged. */
+let photonSearchController=null;
+async function searchPhotonSuggestions(query){
+ const q=query.trim();
+ if(q.length<2)return;
+ if(photonSearchController)photonSearchController.abort();
+ const controller=new AbortController();photonSearchController=controller;
+ const u=new URL("https://photon.komoot.io/api/");
+ u.searchParams.set("q",q);
+ u.searchParams.set("limit","12");
+ u.searchParams.set("lang",lang==="zh"?"zh":lang==="ms"?"en":"en");
+ if(start&&Number.isFinite(start.lat)&&Number.isFinite(start.lon)){
+  u.searchParams.set("lat",String(start.lat));
+  u.searchParams.set("lon",String(start.lon));
+ }
+ const res=await fetch(u,{signal:controller.signal,headers:{"Accept":"application/geo+json"}});
+ if(!res.ok)throw new Error(t("service"));
+ const data=await res.json();
+ const countryNames={my:["malaysia"],sg:["singapore"],th:["thailand"]};
+ const allowed=countryNames[selectedCountry]||[];
+ const mapped=(data.features||[]).map(feature=>{
+  const p=feature.properties||{},coords=feature.geometry?.coordinates||[];
+  const lon=Number(coords[0]),lat=Number(coords[1]);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
+  const country=String(p.country||"").toLowerCase();
+  if(country&&allowed.length&&!allowed.includes(country))return null;
+  const title=p.name||p.street||p.city||p.district||p.state||q;
+  const address=[p.housenumber&&p.street?(p.housenumber+" "+p.street):p.street,p.suburb||p.district,p.city,p.state,p.postcode,p.country].filter((v,i,a)=>v&&a.indexOf(v)===i);
+  const name=address.join(", ")||title;
+  const dest={lat,lon,name,title,type:p.osm_value||p.type||"",source:"photon"};
+  if(start)dest.distanceKm=straightDistanceKm(start,dest);
+  return dest;
+ }).filter(Boolean);
+ const seen=new Set();
+ const unique=mapped.filter(d=>{const k=d.lat.toFixed(5)+","+d.lon.toFixed(5)+","+d.title.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;});
+ if(start)unique.sort((a,b)=>(a.distanceKm??Infinity)-(b.distanceKm??Infinity));
+ return unique.slice(0,10);
+}
+async function runAutocomplete(query,seq){
+ const box=$("searchResults");
+ box.style.display="block";box.setAttribute("aria-busy","true");box.replaceChildren();
+ const loading=document.createElement("div");loading.className="search-results-heading";
+ loading.textContent=t("searching");box.appendChild(loading);
+ try{
+  const results=await searchPhotonSuggestions(query);
+  if(seq!==liveSearchSeq||$("destination").value.trim()!==query)return;
+  showSearchResults(results);
+  if(!results.length)status(t("notFound"));
+ }catch(e){
+  if(e.name==="AbortError")return;
+  if(seq===liveSearchSeq){box.replaceChildren();box.style.display="none";status(e.message||t("service"));}
+ }finally{
+  if(seq===liveSearchSeq)box.setAttribute("aria-busy","false");
+ }
+}
+
 function showSearchResults(results){const box=$("searchResults");box.replaceChildren();box.setAttribute("aria-busy","false");box.style.display="block";const heading=document.createElement("div");heading.className="search-results-heading";heading.textContent=t("searchResultsTitle");box.appendChild(heading);if(!results.length){const empty=document.createElement("div");empty.className="search-result-item";empty.textContent=t("searchNoResults");box.appendChild(empty);return}results.forEach((dest,index)=>{const b=document.createElement("button");b.type="button";b.className="search-result-item";b.setAttribute("role","option");b.setAttribute("aria-label",dest.name);const title=document.createElement("span");title.className="search-result-title";title.textContent=(index+1)+". "+dest.title;const address=document.createElement("span");address.className="search-result-address";address.textContent=dest.name;b.append(title,address);b.addEventListener("click",()=>planRoute(dest));box.appendChild(b)})}
 let liveSearchTimer=null,liveSearchSeq=0;
 async function searchDestinations(live=false){const q=$("destination").value.trim();const qNorm=q.toLowerCase().replace(/[\\s,，。.!！?？]+/g,"");if(/^(医院|附近医院|最近医院|hospital|nearesthospital|nearbyhospital|hospitalnearby|klinikhospital)$/.test(qNorm)){if(live)return;return findNearby("hospital")}if(/^(警察局|附近警察局|最近警察局|警察|balai polis|balaipolis|police|policestation|nearestpolice|nearestpolicestation|nearby police|nearby police station)$/.test(q.toLowerCase().trim())||/^(警察局|附近警察局|最近警察局|警察|balaipolis|police|policestation|nearestpolice|nearestpolicestation|nearbypolice|nearbypolicestation)$/.test(qNorm)){if(live)return;return findNearby("police")}if(!q){$("searchResults").style.display="none";if(!live){status(t("notFound"));$("destination").focus()}return}if(q.length<3){$("searchResults").style.display="none";return}const seq=++liveSearchSeq;const box=$("searchResults");if(!live)$("routeBtn").disabled=true;box.style.display="block";box.setAttribute("aria-busy","true");box.replaceChildren();const loading=document.createElement("div");loading.className="search-results-heading";loading.textContent=t("searching");box.appendChild(loading);try{const results=await geocode(q);if(seq!==liveSearchSeq||$("destination").value.trim()!==q)return;showSearchResults(results);if(!live){if(!results.length)status(t("notFound"));else status(t("searchResultsTitle"))}}catch(e){if(seq===liveSearchSeq){box.replaceChildren();box.style.display="none";if(!live)status(e.message||t("service"))}}finally{if(seq===liveSearchSeq){if(!live)$("routeBtn").disabled=false;box.setAttribute("aria-busy","false")}}}
@@ -394,7 +449,7 @@ function startNavigation(){
  $("startNavBtn").disabled=true;$("stopNavBtn").disabled=false;status(t("navStarted"))
 }
 function stopNavigation(show=true){if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}if(window.speechSynthesis)window.speechSynthesis.cancel();safetyGreetingPlaying=false;$("startNavBtn").disabled=!routeLayer;$("stopNavBtn").disabled=true;if(show)status(t("navStopped"))}
-$("language").addEventListener("change",applyLanguage);$("clearHistoryBtn").addEventListener("click",clearHistory);$("fullscreenBtn").addEventListener("click",toggleFullscreen);$("routeBtn").addEventListener("click",()=>searchDestinations(false));$("nearHospitalBtn").addEventListener("click",()=>findNearby("hospital"));$("nearPoliceBtn").addEventListener("click",()=>findNearby("police"));$("nearFuelBtn").addEventListener("click",()=>findNearbyService("fuel"));$("nearAtmBtn").addEventListener("click",()=>findNearbyService("atm"));$("emergencyBtn").addEventListener("click",()=>{if(confirm(lang==="zh"?"即将打开手机拨号器拨打马来西亚紧急号码 999。是否继续？":lang==="ms"?"Buka pendail untuk menghubungi nombor kecemasan Malaysia 999?":"Open the phone dialer to call Malaysia emergency number 999?"))window.location.href="tel:999"});$("startNavBtn").addEventListener("click",startNavigation);$("stopNavBtn").addEventListener("click",()=>stopNavigation(true));$("destination").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if(liveSearchTimer)clearTimeout(liveSearchTimer);searchDestinations(false)}});$("destination").addEventListener("input",()=>{if(liveSearchTimer)clearTimeout(liveSearchTimer);liveSearchSeq++;const q=$("destination").value.trim();if(q.length<3){$("searchResults").style.display="none";return}liveSearchTimer=setTimeout(()=>searchDestinations(true),850)});
+$("language").addEventListener("change",applyLanguage);$("clearHistoryBtn").addEventListener("click",clearHistory);$("fullscreenBtn").addEventListener("click",toggleFullscreen);$("routeBtn").addEventListener("click",()=>searchDestinations(false));$("nearHospitalBtn").addEventListener("click",()=>findNearby("hospital"));$("nearPoliceBtn").addEventListener("click",()=>findNearby("police"));$("nearFuelBtn").addEventListener("click",()=>findNearbyService("fuel"));$("nearAtmBtn").addEventListener("click",()=>findNearbyService("atm"));$("emergencyBtn").addEventListener("click",()=>{if(confirm(lang==="zh"?"即将打开手机拨号器拨打马来西亚紧急号码 999。是否继续？":lang==="ms"?"Buka pendail untuk menghubungi nombor kecemasan Malaysia 999?":"Open the phone dialer to call Malaysia emergency number 999?"))window.location.href="tel:999"});$("startNavBtn").addEventListener("click",startNavigation);$("stopNavBtn").addEventListener("click",()=>stopNavigation(true));$("destination").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if(liveSearchTimer)clearTimeout(liveSearchTimer);searchDestinations(false)}});$("destination").addEventListener("focus",()=>{if(!$("destination").value.trim())renderHistory()});$("destination").addEventListener("input",()=>{if(liveSearchTimer)clearTimeout(liveSearchTimer);liveSearchSeq++;const q=$("destination").value.trim();$("recentSearchPanel").hidden=q.length>0;if(q.length<2){if(photonSearchController)photonSearchController.abort();$("searchResults").style.display="none";renderHistory();return}const seq=liveSearchSeq;liveSearchTimer=setTimeout(()=>runAutocomplete(q,seq),500)});
 applyLanguage();useGps().catch(()=>status(t("noGps")));
 })();
 
